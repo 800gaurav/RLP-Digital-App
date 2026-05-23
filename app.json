@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "RLP Digital",
+    "slug": "rlp-digital",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "rlpdigital",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#006E2E"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rlp.digital"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#006E2E"
+      },
+      "package": "com.rlp.digital",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow RLP Digital to access your photos for profile picture.",
+          "cameraPermission": "Allow RLP Digital to use your camera for profile picture."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow RLP Digital to save media to your gallery.",
+          "savePhotosPermission": "Allow RLP Digital to save photos to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#FFD400"
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}
