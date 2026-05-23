@@ -5,6 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 import { VERIFY_BASE_URL } from '../../services/config';
+import { resolveMediaUrl } from '../../services/media';
 
 function BottleMark() {
   return (
@@ -19,6 +20,7 @@ function BottleMark() {
 
 export default function IDCard({ user }) {
   const qrValue = `${VERIFY_BASE_URL}/${user.id}`;
+  const profilePhoto = resolveMediaUrl(user.profilePhoto);
   const issueDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -50,8 +52,8 @@ export default function IDCard({ user }) {
 
         <View style={styles.identity}>
           <View style={styles.photoGlow} />
-          {user.profilePhoto ? (
-            <Image source={{ uri: user.profilePhoto }} style={styles.photo} resizeMode="cover" />
+          {profilePhoto ? (
+            <Image source={{ uri: profilePhoto }} style={styles.photo} resizeMode="cover" />
           ) : (
             <View style={[styles.photo, styles.photoPlaceholder]}>
               <Text style={styles.photoInitial}>{user.fullName?.charAt(0)?.toUpperCase() ?? 'R'}</Text>

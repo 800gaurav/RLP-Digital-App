@@ -34,9 +34,6 @@ export default function TrainingVideosScreen() {
       </View>
       <View style={styles.cardContent}>
         <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-        <View style={styles.cardFooter}>
-          <View style={styles.languageBadge}><Text style={styles.languageText}>{item.language}</Text></View>
-        </View>
       </View>
     </Pressable>
   );
@@ -83,10 +80,7 @@ const styles = StyleSheet.create({
   durationBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6 },
   durationText: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.white },
   cardContent: { padding: 12 },
-  title: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface, lineHeight: 20, marginBottom: 8 },
-  cardFooter: { flexDirection: 'row', alignItems: 'center' },
-  languageBadge: { backgroundColor: Colors.secondaryContainer, borderRadius: 6, paddingVertical: 3, paddingHorizontal: 8 },
-  languageText: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.rlpGreen },
+  title: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface, lineHeight: 20 },
   emptyState: { alignItems: 'center', paddingTop: 80, gap: 12 },
   emptyIcon: { fontSize: 48 },
   emptyText: { fontFamily: FontFamily.regular, fontSize: 15, color: Colors.onSurfaceVariant },

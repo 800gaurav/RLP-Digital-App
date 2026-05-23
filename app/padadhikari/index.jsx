@@ -9,8 +9,8 @@ import AppBottomNav from '../../components/navigation/AppBottomNav';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
-const RANK_ORDER = ['national', 'state', 'district'];
-const RANK_LABELS = { national: 'National', state: 'State', district: 'District' };
+const RANK_ORDER = ['state', 'district', 'block'];
+const RANK_LABELS = { state: 'State', district: 'District', block: 'Block' };
 
 function EmptyState() {
   return (

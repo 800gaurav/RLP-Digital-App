@@ -47,7 +47,7 @@ function TemplateCard({ template, isSubscribed, onPress }) {
   );
 }
 
-export default function TemplateGrid({ templates, isSubscribed, onTemplatePress, selectedCategory, onCategoryChange }) {
+export default function TemplateGrid({ templates, isSubscribed, onTemplatePress, selectedCategory, onCategoryChange, refreshControl }) {
   const filtered = selectedCategory === 'All Templates' || selectedCategory === 'All'
     ? templates
     : templates.filter((t) => t.category.toLowerCase() === selectedCategory.toLowerCase());
@@ -71,7 +71,7 @@ export default function TemplateGrid({ templates, isSubscribed, onTemplatePress,
         ))}
       </ScrollView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.gridContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.gridContent} refreshControl={refreshControl}>
         {rows.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No templates in this category</Text>

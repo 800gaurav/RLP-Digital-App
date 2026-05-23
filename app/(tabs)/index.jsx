@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Image,
+  Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import ViewShot from 'react-native-view-shot';
 
 import { useAuthStore } from '../../store/auth.store';
 import { getMe } from '../../services/user.service';
-import { getReels, downloadReel } from '../../services/reels.service';
-import { getPadadhikari } from '../../services/padadhikari.service';
-import { apiClient } from '../../services/api';
-import { demoNotifications } from '../../services/mockData';
+import { downloadReel } from '../../services/reels.service';
+import { getHomeFeed } from '../../services/home.service';
 
 import TopAppBar from '../../components/home/TopAppBar';
 import AlertBanner from '../../components/home/AlertBanner';
@@ -19,62 +23,81 @@ import IDCardPreview from '../../components/home/IDCardPreview';
 import ReelsRow from '../../components/home/ReelsRow';
 import FeatureGrid from '../../components/home/FeatureGrid';
 import ReelViewer from '../../components/home/ReelViewer';
+import IDCard from '../../components/digital-id/IDCard';
 
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
+const ID_CARD_DOWNLOAD_FOLDER_KEY = 'rlp-id-card-download-folder';
+
 export default function HomeScreen() {
-  const { user: storeUser } = useAuthStore();
+  const { user: storeUser, setUser } = useAuthStore();
+  const idCardCaptureRef = useRef(null);
   const [selectedReel, setSelectedReel] = useState(null);
+  const [selectedReelIndex, setSelectedReelIndex] = useState(-1);
   const [viewerVisible, setViewerVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: user, refetch: refetchUser } = useQuery({
     queryKey: ['me'],
-    queryFn: getMe,
+    queryFn: async () => {
+      const currentUser = await getMe();
+      setUser(currentUser);
+      return currentUser;
+    },
     initialData: storeUser ?? undefined,
   });
 
-  const { data: reels = [], refetch: refetchReels } = useQuery({
-    queryKey: ['reels'],
-    queryFn: getReels,
+  const { data: homeFeed, refetch: refetchHomeFeed } = useQuery({
+    queryKey: ['home-feed'],
+    queryFn: getHomeFeed,
   });
 
-  const { data: notifications = [], refetch: refetchNotifications } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get('/notifications');
-        return res.data.data;
-      } catch (error) {
-        // TODO: Replace notification fallback with backend broadcast notifications.
-        if (!error.response) return demoNotifications;
-        throw error;
-      }
-    },
-  });
-
-  // Padadhikari for home screen horizontal scroll (Figma requirement)
-  const { data: officials = [] } = useQuery({
-    queryKey: ['padadhikari-home'],
-    queryFn: () => getPadadhikari(),
-  });
-
-  const priorityNotification = notifications.find((n) => n.priority) ?? notifications[0] ?? null;
+  const reels = homeFeed?.reels || [];
+  const notifications = homeFeed?.notifications || [];
+  const officials = homeFeed?.officials || [];
+  const trainings = homeFeed?.trainings || [];
+  const homeStatusReels = reels.slice(0, 10);
+  const latestUpdates = notifications.slice(0, 4);
+  const priorityNotification = notifications.find((item) => item.priority) ?? notifications[0] ?? null;
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchUser(), refetchReels(), refetchNotifications()]);
+    await Promise.all([refetchUser(), refetchHomeFeed()]);
     setRefreshing(false);
   };
 
-  const handleReelPress = (reel) => {
+  const handleReelPress = (reel, index) => {
     setSelectedReel(reel);
+    setSelectedReelIndex(index);
     setViewerVisible(true);
   };
 
   const handleDownload = async (reel) => {
-    try { await downloadReel(reel); } catch (_e) {}
+    try {
+      const result = await downloadReel(reel);
+      if (result?.savedTo === 'share') {
+        Alert.alert('Save Status', 'Expo Go me direct gallery save restricted hai. Share sheet se Save/Download choose kar sakte hain.');
+        return;
+      }
+      Alert.alert('Downloaded', 'Status gallery me save ho gaya.');
+    } catch (error) {
+      Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
+    }
+  };
+
+  const handlePreviousReel = () => {
+    if (selectedReelIndex <= 0) return;
+    const nextIndex = selectedReelIndex - 1;
+    setSelectedReelIndex(nextIndex);
+    setSelectedReel(homeStatusReels[nextIndex]);
+  };
+
+  const handleNextReel = () => {
+    if (selectedReelIndex >= homeStatusReels.length - 1) return;
+    const nextIndex = selectedReelIndex + 1;
+    setSelectedReelIndex(nextIndex);
+    setSelectedReel(homeStatusReels[nextIndex]);
   };
 
   const handleNotificationPress = () => {
@@ -83,47 +106,209 @@ export default function HomeScreen() {
     }
   };
 
+  const openDigitalId = (action) => {
+    router.push(action ? { pathname: '/digital-id', params: { action } } : '/digital-id');
+  };
+
+  const captureIdCard = async () => {
+    if (!idCardCaptureRef.current?.capture) throw new Error('ID card preview is not ready yet. Please try again.');
+    return idCardCaptureRef.current.capture();
+  };
+
+  const persistIdCard = async () => {
+    const capturedUri = await captureIdCard();
+    const targetUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}RLP-ID-${user.voterId || user.id}-${Date.now()}.png`;
+    await FileSystem.copyAsync({ from: capturedUri, to: targetUri });
+    return targetUri;
+  };
+
+  const saveToAndroidFolder = async (uri, filename) => {
+    let directoryUri = await AsyncStorage.getItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
+
+    if (!directoryUri) {
+      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
+      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+      if (!permission.granted) return false;
+      directoryUri = permission.directoryUri;
+      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, directoryUri);
+    }
+
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, filename, 'image/png');
+      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      return true;
+    } catch (error) {
+      await AsyncStorage.removeItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
+      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
+      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+      if (!permission.granted) throw error;
+      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, permission.directoryUri);
+
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri, filename, 'image/png');
+      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      return true;
+    }
+  };
+
+  const handleIdCardDownload = async () => {
+    try {
+      const uri = await persistIdCard();
+      const filename = `RLP-ID-${user.voterId || user.id}-${Date.now()}`;
+
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        const saved = await saveToAndroidFolder(uri, filename);
+        if (saved) {
+          Alert.alert('Downloaded', 'ID card image saved to the selected folder.');
+          return;
+        }
+      }
+
+      try {
+        const mediaLibraryAvailable = await MediaLibrary.isAvailableAsync();
+        if (mediaLibraryAvailable && typeof MediaLibrary.requestPermissionsAsync === 'function') {
+          const permission = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
+          if (permission.status === 'granted') {
+            if (typeof MediaLibrary.saveToLibraryAsync === 'function') await MediaLibrary.saveToLibraryAsync(uri);
+            else await MediaLibrary.createAssetAsync(uri);
+            Alert.alert('Downloaded', 'ID card image saved to gallery.');
+            return;
+          }
+        }
+      } catch (_permissionError) {}
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Save Digital ID Card', UTI: 'public.png' });
+        return;
+      }
+
+      Alert.alert('Saved Locally', `Card saved at:\n${uri}`);
+    } catch (error) {
+      console.error('Home ID card download failed', error);
+      Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');
+    }
+  };
+
+  const handleIdCardShare = async () => {
+    try {
+      const uri = await persistIdCard();
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Sharing unavailable', `ID card generated at ${uri}`);
+        return;
+      }
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share Digital ID Card', UTI: 'public.png' });
+    } catch (error) {
+      console.error('Home ID card share failed', error);
+      Alert.alert('Share failed', error?.message || 'Could not generate the ID card image.');
+    }
+  };
+
+  const openStampPad = () => {
+    if (user.stampPadAccess) router.push('/stamp-pad');
+    else router.push('/stamp-pad/access-restricted');
+  };
+
   if (!user) return null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <TopAppBar
         user={user}
-        onNotificationPress={handleNotificationPress}
+        onNotificationPress={() => router.push('/notifications')}
         onDigitalIdPress={() => router.push('/digital-id')}
+        onProfilePress={() => router.push('/(tabs)/profile')}
       />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={
+        refreshControl={(
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
             tintColor={Colors.rlpGreen}
             colors={[Colors.rlpGreen]}
           />
-        }
+        )}
       >
-        {/* Alert banner */}
         <AlertBanner notification={priorityNotification} onPress={handleNotificationPress} />
 
-        {/* ID Card preview */}
-        <IDCardPreview user={user} onDownloadPress={() => router.push('/digital-id')} />
+        <IDCardPreview
+          user={user}
+          onViewPress={() => openDigitalId()}
+          onDownloadPress={handleIdCardDownload}
+          onSharePress={handleIdCardShare}
+        />
 
-        {/* Reels / Humaare Kaam */}
+        {notifications.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderTitle}>Latest Updates</Text>
+              <Pressable onPress={() => router.push('/notifications')} accessibilityRole="button">
+                <Text style={styles.viewAll}>View All</Text>
+              </Pressable>
+            </View>
+            <View style={styles.updateList}>
+              {latestUpdates.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={({ pressed }) => [styles.updateCard, pressed && { opacity: 0.88 }]}
+                  onPress={() => router.push({ pathname: '/notification-detail', params: { id: item.id } })}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.updateTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.updateBody} numberOfLines={1}>{item.body || item.message}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
-          <ReelsRow reels={reels} onReelPress={handleReelPress} onViewAllPress={() => router.push('/(tabs)/status')} />
+          <ReelsRow reels={homeStatusReels} onReelPress={handleReelPress} onViewAllPress={() => router.push('/(tabs)/status')} />
         </View>
 
-        {/* ── Padadhikari Section (from Figma) ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Party Tools</Text>
+          <FeatureGrid
+            onPadadhikariPress={() => router.push('/padadhikari')}
+            onTrainingPress={() => router.push('/training-videos')}
+            onStatusPress={() => router.push('/(tabs)/status')}
+            onPosterPress={() => router.push('/(tabs)/poster-maker')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Pressable
+            style={({ pressed }) => [styles.stampPadCta, pressed && { opacity: 0.88 }]}
+            onPress={openStampPad}
+            accessibilityRole="button"
+            accessibilityLabel="Open Stamp Pad"
+          >
+            <View style={styles.stampIconWrap}>
+              <Ionicons name="document-text" size={30} color={Colors.rlpGreen} />
+            </View>
+            <View style={styles.stampContent}>
+              <Text style={styles.stampTitle}>Stamp Pad</Text>
+              <Text style={styles.stampSubtitle}>Draft letters with official RLP stamp format.</Text>
+            </View>
+            <View style={styles.stampAction}>
+              <Text style={styles.stampActionText}>Open</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.white} />
+            </View>
+          </Pressable>
+        </View>
+
         {officials.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Padadhikari</Text>
+              <Text style={styles.sectionHeaderTitle}>Padadhikari (Leaders)</Text>
               <Pressable onPress={() => router.push('/padadhikari')} accessibilityRole="button">
-                <Text style={styles.viewAll}>View Hierarchy</Text>
+                <Text style={styles.viewAll}>View All</Text>
               </Pressable>
             </View>
             <ScrollView
@@ -131,7 +316,7 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.padadhikariScroll}
             >
-              {officials.slice(0, 5).map((official) => (
+              {officials.slice(0, 10).map((official) => (
                 <Pressable
                   key={official.id}
                   style={({ pressed }) => [styles.officialCard, pressed && { opacity: 0.85 }]}
@@ -139,19 +324,18 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={official.fullName}
                 >
-                  {official.photoUrl ? (
-                    <Image source={{ uri: official.photoUrl }} style={styles.officialPhoto} resizeMode="cover" />
+                  {official.photoUrl || official.imageUrl ? (
+                    <Image source={{ uri: official.photoUrl || official.imageUrl }} style={styles.officialPhoto} resizeMode="cover" />
                   ) : (
                     <View style={[styles.officialPhoto, styles.officialPhotoPlaceholder]}>
-                      <Text style={styles.officialInitial}>{official.fullName.charAt(0)}</Text>
+                      <Text style={styles.officialInitial}>{official.fullName?.charAt(0) || 'R'}</Text>
                     </View>
                   )}
                   <View style={styles.officialInfo}>
                     <Text style={styles.officialName} numberOfLines={1}>{official.fullName}</Text>
                     <Text style={styles.officialDesignation} numberOfLines={1}>{official.designation}</Text>
                     <View style={styles.officialActions}>
-                      <Text style={styles.officialActionIcon}>✓</Text>
-                      <Text style={styles.officialActionIcon}>↗</Text>
+                      <Text style={styles.officialActionIcon}>Verified</Text>
                     </View>
                   </View>
                 </Pressable>
@@ -160,62 +344,41 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Features grid */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Features</Text>
-          <FeatureGrid
-            user={user}
-            onPadadhikariPress={() => router.push('/padadhikari')}
-            onTrainingPress={() => router.push('/training-videos')}
-            onPosterPress={() => router.push('/(tabs)/poster-maker')}
-            onStampPadPress={() =>
-              user.stampPadAccess
-                ? router.push('/stamp-pad')
-                : router.push('/stamp-pad/access-restricted')
-            }
-          />
-        </View>
-
-        {/* Training Videos preview */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Training Videos</Text>
+            <Text style={styles.sectionHeaderTitle}>Training Videos</Text>
             <Pressable onPress={() => router.push('/training-videos')} accessibilityRole="button">
-              <Text style={styles.viewAll}>View More</Text>
+              <Text style={styles.viewAll}>View All</Text>
             </Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trainingScroll}>
-            {reels.slice(0, 2).map((reel) => (
+            {trainings.slice(0, 8).map((video) => (
               <Pressable
-                key={reel.id}
+                key={video.id}
                 style={({ pressed }) => [styles.trainingCard, pressed && { opacity: 0.85 }]}
-                onPress={() => handleReelPress(reel)}
+                onPress={() => router.push({ pathname: '/training-videos/[id]', params: { id: video.id } })}
                 accessibilityRole="button"
               >
-                {reel.mediaUrl ? (
-                  <Image source={{ uri: reel.mediaUrl }} style={styles.trainingThumb} resizeMode="cover" />
+                {video.thumbnailUrl ? (
+                  <Image source={{ uri: video.thumbnailUrl }} style={styles.trainingThumb} resizeMode="cover" />
                 ) : (
                   <View style={[styles.trainingThumb, styles.trainingThumbFallback]}>
                     <Text style={styles.trainingThumbText}>RLP</Text>
                   </View>
                 )}
-                {reel.mediaType === 'video' && (
-                  <View style={styles.trainingPlayOverlay}>
-                    <View style={styles.trainingPlayCircle}>
-                      <Text style={styles.trainingPlayIcon}>▶</Text>
-                    </View>
+                <View style={styles.trainingPlayOverlay}>
+                  <View style={styles.trainingPlayCircle}>
+                    <Ionicons name="play" size={16} color={Colors.rlpGreen} />
                   </View>
-                )}
+                </View>
                 <View style={styles.trainingInfo}>
-                  <Text style={styles.trainingCaption} numberOfLines={1}>{reel.caption}</Text>
-                  <Text style={styles.trainingMeta}>Hindi</Text>
+                  <Text style={styles.trainingCaption} numberOfLines={1}>{video.title}</Text>
                 </View>
               </Pressable>
             ))}
           </ScrollView>
         </View>
 
-        {/* Poster CTA matching Figma */}
         <View style={styles.section}>
           <View style={styles.posterCta}>
             <View style={styles.posterCtaContent}>
@@ -228,13 +391,13 @@ export default function HomeScreen() {
                 onPress={() => router.push('/(tabs)/poster-maker')}
                 accessibilityRole="button"
               >
-                <Text style={styles.posterCtaBtnText}>Start Designing  🎨</Text>
+                <Text style={styles.posterCtaBtnText}>Start Designing</Text>
               </Pressable>
             </View>
           </View>
         </View>
 
-        <View style={{ height: 130 }} />
+        <View style={{ height: 24 }} />
       </ScrollView>
 
       <ReelViewer
@@ -242,13 +405,35 @@ export default function HomeScreen() {
         visible={viewerVisible}
         onClose={() => setViewerVisible(false)}
         onDownload={handleDownload}
+        hasPrevious={selectedReelIndex > 0}
+        hasNext={selectedReelIndex >= 0 && selectedReelIndex < homeStatusReels.length - 1}
+        currentIndex={selectedReelIndex}
+        totalCount={homeStatusReels.length}
+        onPrevious={handlePreviousReel}
+        onNext={handleNextReel}
       />
+
+      <ViewShot
+        ref={idCardCaptureRef}
+        style={styles.hiddenIdCardCapture}
+        options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+      >
+        <IDCard user={user} />
+      </ViewShot>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.rlpGreen },
+  hiddenIdCardCapture: {
+    position: 'absolute',
+    left: -10000,
+    top: 0,
+    width: 360,
+    opacity: 0.01,
+    backgroundColor: Colors.transparent,
+  },
   scroll: { flex: 1, backgroundColor: Colors.rlpGreen },
   scrollContent: { paddingTop: 8 },
   section: { marginTop: 20 },
@@ -260,8 +445,23 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semiBold, fontSize: 18, color: Colors.white,
     paddingHorizontal: 16, marginBottom: 12,
   },
-  viewAll: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.rlpGreen },
-  // Padadhikari section
+  sectionHeaderTitle: {
+    fontFamily: FontFamily.semiBold, fontSize: 18, color: Colors.white,
+  },
+  viewAll: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.rlpYellow },
+  updateList: { paddingHorizontal: 16, gap: 12 },
+  updateCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    height: 68,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  updateTitle: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface, marginBottom: 4 },
+  updateBody: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18, color: Colors.onSurfaceVariant },
   padadhikariScroll: { paddingHorizontal: 16, gap: 12 },
   officialCard: {
     width: 240, backgroundColor: Colors.white, padding: 16, borderRadius: 12,
@@ -276,8 +476,7 @@ const styles = StyleSheet.create({
   officialName: { fontFamily: FontFamily.semiBold, fontSize: 14, color: '#1a1a1a', marginBottom: 2 },
   officialDesignation: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.rlpGreen, marginBottom: 6 },
   officialActions: { flexDirection: 'row', gap: 8 },
-  officialActionIcon: { fontSize: 14, color: '#9ca3af' },
-  // Training
+  officialActionIcon: { fontSize: 12, color: '#9ca3af' },
   trainingScroll: { paddingHorizontal: 16, gap: 12 },
   trainingCard: {
     width: 180, borderRadius: 12, overflow: 'hidden',
@@ -296,11 +495,8 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center',
   },
-  trainingPlayIcon: { fontSize: 16, color: Colors.rlpGreen },
   trainingInfo: { padding: 10 },
-  trainingCaption: { fontFamily: FontFamily.semiBold, fontSize: 12, color: '#1a1a1a', marginBottom: 2 },
-  trainingMeta: { fontSize: 10, color: '#9ca3af' },
-  // Poster CTA
+  trainingCaption: { fontFamily: FontFamily.semiBold, fontSize: 12, color: '#1a1a1a' },
   posterCta: {
     marginHorizontal: 16, backgroundColor: Colors.rlpYellow,
     borderRadius: 16, padding: 24, overflow: 'hidden',
@@ -315,4 +511,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   posterCtaBtnText: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.white },
+  stampPadCta: {
+    marginHorizontal: 16, backgroundColor: Colors.white, borderRadius: 16,
+    padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1.5, borderColor: Colors.rlpYellow,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 7, elevation: 3,
+  },
+  stampIconWrap: {
+    width: 58, height: 58, borderRadius: 16, backgroundColor: Colors.rlpYellow,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  stampContent: { flex: 1 },
+  stampTitle: { fontFamily: FontFamily.bold, fontSize: 18, color: Colors.onSurface, marginBottom: 4 },
+  stampSubtitle: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 17, color: Colors.onSurfaceVariant },
+  stampAction: {
+    backgroundColor: Colors.rlpGreen, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 2,
+  },
+  stampActionText: { fontFamily: FontFamily.semiBold, fontSize: 12, color: Colors.white },
 });

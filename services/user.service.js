@@ -1,13 +1,16 @@
 import { apiClient } from './api';
 import { demoUser } from './mockData';
+import { normalizeUserMedia } from './media';
+import { useAuthStore } from '../store/auth.store';
+import { createUploadFile, uploadForm } from './upload';
 
 export async function getMe() {
   try {
     const response = await apiClient.get('/users/me');
-    return response.data.data;
+    return normalizeUserMedia(response.data.data);
   } catch (error) {
     // Offline fallback keeps the app shell inspectable when the API is unreachable.
-    if (!error.response) return demoUser;
+    if (!error.response) return normalizeUserMedia(useAuthStore.getState().user) || demoUser;
     throw error;
   }
 }
@@ -15,7 +18,7 @@ export async function getMe() {
 export async function updateMe(data) {
   try {
     const response = await apiClient.put('/users/me', data);
-    return response.data.data;
+    return normalizeUserMedia(response.data.data);
   } catch (error) {
     // TODO: Wire profile updates to the production backend and remove local merge fallback.
     if (!error.response) return { ...demoUser, ...data };
@@ -24,19 +27,19 @@ export async function updateMe(data) {
 }
 
 export async function updatePhoto(uri) {
-  const filename = uri.split('/').pop() ?? 'photo.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : 'image/jpeg';
   const formData = new FormData();
-  formData.append('photo', { uri, name: filename, type });
+  formData.append('photo', createUploadFile(uri, {
+    kind: 'image',
+    fallbackName: `profile-${Date.now()}.jpg`,
+  }));
   try {
-    const response = await apiClient.put('/users/me/photo', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data.data;
+    const response = await uploadForm('/users/me/photo', formData, { method: 'PUT' });
+    return normalizeUserMedia(response.data);
   } catch (error) {
-    // TODO: Replace with uploaded CDN URL from backend.
-    if (!error.response) return { ...demoUser, profilePhoto: uri };
+    if (!error.response) {
+      const currentUser = useAuthStore.getState().user || demoUser;
+      return normalizeUserMedia({ ...currentUser, profilePhoto: uri });
+    }
     throw error;
   }
 }

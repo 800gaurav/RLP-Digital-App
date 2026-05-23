@@ -1,12 +1,15 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { apiClient } from './api';
 import { demoReels } from './mockData';
+import { normalizeMediaItem, resolveMediaUrl } from './media';
+import { createUploadFile, uploadForm } from './upload';
 
 export async function getReels() {
   try {
     const response = await apiClient.get('/reels');
-    return response.data.data;
+    return response.data.data.map(normalizeMediaItem);
   } catch (error) {
     // TODO: Replace demo reels with admin-uploaded media from /reels.
     if (!error.response) return demoReels;
@@ -14,35 +17,82 @@ export async function getReels() {
   }
 }
 
-export async function createReel({ caption, mediaUri, mediaType }) {
+export async function createReel({ caption, mediaUri, mediaType, mediaUriName, mediaUriMimeType }) {
+  if (!mediaUri) {
+    const response = await apiClient.post('/reels', { caption: caption || '', mediaType });
+    return normalizeMediaItem(response.data.data);
+  }
+
   const formData = new FormData();
-  formData.append('caption', caption);
+  formData.append('caption', caption || '');
   if (mediaType) formData.append('mediaType', mediaType);
   if (mediaUri) {
-    const filename = mediaUri.split('/').pop() || 'rlp-status.jpg';
-    const ext = filename.split('.').pop() || 'jpg';
-    const type = mediaType === 'video' ? `video/${ext}` : `image/${ext}`;
-    formData.append('media', { uri: mediaUri, name: filename, type });
+    formData.append('media', createUploadFile(mediaUri, {
+      kind: mediaType === 'video' ? 'video' : 'image',
+      fallbackName: mediaType === 'video' ? 'rlp-status.mp4' : 'rlp-status.jpg',
+      fileName: mediaUriName,
+      mimeType: mediaUriMimeType,
+    }));
   }
-  const response = await apiClient.post('/reels', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return response.data.data;
+  const response = await uploadForm('/reels', formData, { timeout: 300000 });
+  return normalizeMediaItem(response.data);
+}
+
+export async function updateReel(id, { caption, mediaUri, mediaType, mediaUriName, mediaUriMimeType }) {
+  if (!mediaUri) {
+    const response = await apiClient.put(`/reels/${id}`, { caption: caption || '', mediaType });
+    return normalizeMediaItem(response.data.data);
+  }
+
+  const formData = new FormData();
+  formData.append('caption', caption || '');
+  if (mediaType) formData.append('mediaType', mediaType);
+  if (mediaUri) {
+    formData.append('media', createUploadFile(mediaUri, {
+      kind: mediaType === 'video' ? 'video' : 'image',
+      fallbackName: mediaType === 'video' ? 'rlp-status.mp4' : 'rlp-status.jpg',
+      fileName: mediaUriName,
+      mimeType: mediaUriMimeType,
+    }));
+  }
+  const response = await uploadForm(`/reels/${id}`, formData, { method: 'PUT', timeout: 300000 });
+  return normalizeMediaItem(response.data);
+}
+
+export async function deleteReel(id) {
+  const response = await apiClient.delete(`/reels/${id}`);
+  return response.data;
 }
 
 export async function downloadReel(reel) {
-  const { status } = await MediaLibrary.requestPermissionsAsync();
-  if (status !== 'granted') throw new Error('Media library permission not granted');
-  const filename = reel.mediaUrl.split('/').pop() ?? `reel-${reel.id}`;
+  const mediaUrl = resolveMediaUrl(reel.mediaUrl);
+  if (!mediaUrl) throw new Error('Media URL is missing');
+  const extension = reel.mediaType === 'video' ? 'mp4' : 'jpg';
+  let filename = (mediaUrl.split('/').pop()?.split('?')[0]) || `reel-${reel.id}.${extension}`;
+  if (!filename.includes('.')) filename = `${filename}.${extension}`;
   const localUri = `${FileSystem.cacheDirectory}${filename}`;
-  const downloadResult = await FileSystem.downloadAsync(reel.mediaUrl, localUri);
+  const downloadResult = await FileSystem.downloadAsync(mediaUrl, localUri);
   if (downloadResult.status !== 200) throw new Error(`Download failed: ${downloadResult.status}`);
-  const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
-  const albumName = 'RLP Digital Connect';
-  const album = await MediaLibrary.getAlbumAsync(albumName);
-  if (album) {
-    await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-  } else {
-    await MediaLibrary.createAlbumAsync(albumName, asset, false);
+
+  try {
+    const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo', 'video']);
+    if (status !== 'granted') throw new Error('Media library permission not granted');
+    const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
+    const albumName = 'RLP Digital Connect';
+    const album = await MediaLibrary.getAlbumAsync(albumName);
+    if (album) {
+      await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+    } else {
+      await MediaLibrary.createAlbumAsync(albumName, asset, false);
+    }
+    return { savedTo: 'gallery' };
+  } catch (galleryError) {
+    const canShare = await Sharing.isAvailableAsync();
+    if (!canShare) throw galleryError;
+    await Sharing.shareAsync(downloadResult.uri, {
+      mimeType: reel.mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
+      dialogTitle: 'Save Status',
+    });
+    return { savedTo: 'share' };
   }
 }

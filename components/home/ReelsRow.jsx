@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
@@ -7,8 +8,8 @@ export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
   return (
     <View style={styles.section}>
       <View style={styles.header}>
-        <Text style={styles.sectionTitle}>Humaare Kaam</Text>
-        <Pressable onPress={onViewAllPress} accessibilityRole="button" accessibilityLabel="View all reels">
+        <Text style={styles.sectionTitle}>Status</Text>
+        <Pressable onPress={onViewAllPress} accessibilityRole="button" accessibilityLabel="View all status">
           <Text style={styles.viewAll}>View All</Text>
         </Pressable>
       </View>
@@ -18,19 +19,25 @@ export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {reels.map((reel) => (
+          {reels.map((reel, index) => (
             <Pressable
               key={reel.id}
               style={({ pressed }) => [styles.reelItem, pressed && styles.reelPressed]}
-              onPress={() => onReelPress(reel)}
+              onPress={() => onReelPress(reel, index)}
               accessibilityRole="button"
-              accessibilityLabel={reel.caption}
+              accessibilityLabel={reel.caption || 'Status update'}
             >
               <View style={styles.ring}>
-                <Image source={{ uri: reel.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
+                {reel.mediaUrl ? (
+                  <Image source={{ uri: reel.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.thumbnail, styles.thumbnailFallback]}>
+                    <Ionicons name="image-outline" size={24} color={Colors.rlpYellow} />
+                  </View>
+                )}
                 {reel.mediaType === 'video' && (
                   <View style={styles.playOverlay}>
-                    <Text style={styles.playIcon}>▶</Text>
+                    <Ionicons name="play" size={20} color={Colors.white} />
                   </View>
                 )}
               </View>
@@ -46,20 +53,20 @@ export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
 const styles = StyleSheet.create({
   section: { marginTop: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitle: { fontFamily: FontFamily.semiBold, fontSize: 18, color: '#1a1a1a' },
-  viewAll: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.rlpGreen },
+  sectionTitle: { fontFamily: FontFamily.semiBold, fontSize: 18, color: Colors.white },
+  viewAll: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.rlpYellow },
   scrollContent: { paddingHorizontal: 16, gap: 16 },
   reelItem: { alignItems: 'center', width: 88 },
   reelPressed: { opacity: 0.8 },
   ring: {
     width: 84, height: 84, borderRadius: 42, borderWidth: 3,
     borderColor: Colors.rlpYellow, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.surfaceContainerHigh,
+    backgroundColor: Colors.rlpGreenDark,
   },
   thumbnail: { width: 78, height: 78, borderRadius: 39 },
+  thumbnailFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.rlpGreenDark },
   playOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.25)' },
-  playIcon: { fontSize: 20, color: Colors.white },
-  caption: { fontFamily: FontFamily.regular, fontSize: 11, color: Colors.onSurfaceVariant, textAlign: 'center', marginTop: 6, lineHeight: 14 },
+  caption: { fontFamily: FontFamily.regular, fontSize: 11, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginTop: 6, lineHeight: 14 },
   emptyState: { paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' },
-  emptyText: { fontFamily: FontFamily.regular, fontSize: 14, color: Colors.onSurfaceVariant },
+  emptyText: { fontFamily: FontFamily.regular, fontSize: 14, color: 'rgba(255,255,255,0.82)' },
 });

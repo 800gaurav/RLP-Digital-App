@@ -1,10 +1,25 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Avatar from '../ui/Avatar';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
-export default function IDCardPreview({ user, onDownloadPress }) {
+function IDAction({ icon, label, onPress, primary }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.actionBtn, primary && styles.actionBtnPrimary, pressed && styles.actionBtnPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} ID Card`}
+    >
+      <Ionicons name={icon} size={15} color={primary ? Colors.white : Colors.rlpGreen} />
+      <Text style={[styles.actionText, primary && styles.actionTextPrimary]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function IDCardPreview({ user, onViewPress, onDownloadPress, onSharePress }) {
   return (
     <View style={styles.card}>
       <View style={styles.gradientOverlay} />
@@ -17,14 +32,11 @@ export default function IDCardPreview({ user, onDownloadPress }) {
           </View>
           <Text style={styles.voterId} numberOfLines={1}>{user.voterId}</Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.downloadBtn, pressed && styles.downloadBtnPressed]}
-          onPress={onDownloadPress}
-          accessibilityRole="button"
-          accessibilityLabel="Download ID Card"
-        >
-          <Text style={styles.downloadText}>Download{'\n'}ID</Text>
-        </Pressable>
+      </View>
+      <View style={styles.actions}>
+        <IDAction icon="card-outline" label="View ID" onPress={onViewPress} primary />
+        <IDAction icon="download-outline" label="Download" onPress={onDownloadPress} />
+        <IDAction icon="share-social-outline" label="Share" onPress={onSharePress} />
       </View>
     </View>
   );
@@ -37,16 +49,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.rlpYellow,
   },
   gradientOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.rlpYellowDark, opacity: 0.35 },
-  content: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  content: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 12 },
   info: { flex: 1, gap: 4 },
   name: { fontFamily: FontFamily.bold, fontSize: 15, color: Colors.onSurface, lineHeight: 20 },
   designationRow: { alignSelf: 'flex-start', backgroundColor: Colors.rlpGreen, borderRadius: 999, paddingVertical: 2, paddingHorizontal: 8 },
   designation: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.white },
   voterId: { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.onSurfaceVariant },
-  downloadBtn: {
-    backgroundColor: Colors.rlpGreen, borderRadius: 999,
-    paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  actions: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  actionBtn: {
+    flex: 1, minHeight: 38, borderRadius: 999,
+    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', gap: 5, borderWidth: 1, borderColor: 'rgba(8,122,51,0.18)',
+    paddingHorizontal: 8,
   },
-  downloadBtnPressed: { opacity: 0.8 },
-  downloadText: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.white, textAlign: 'center', lineHeight: 15 },
+  actionBtnPrimary: { backgroundColor: Colors.rlpGreen, borderColor: Colors.rlpGreen },
+  actionBtnPressed: { opacity: 0.85 },
+  actionText: { fontFamily: FontFamily.semiBold, fontSize: 11, color: Colors.rlpGreen, textAlign: 'center' },
+  actionTextPrimary: { color: Colors.white },
 });

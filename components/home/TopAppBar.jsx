@@ -5,11 +5,13 @@ import Avatar from '../ui/Avatar';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
-export default function TopAppBar({ user, onNotificationPress, onDigitalIdPress }) {
+export default function TopAppBar({ user, onNotificationPress, onDigitalIdPress, onProfilePress }) {
   return (
     <View style={styles.container}>
       <View style={styles.left}>
-        <Avatar uri={user.profilePhoto} name={user.fullName} size={40} borderColor={Colors.primaryContainer} />
+        <Pressable onPress={onProfilePress} accessibilityRole="button" accessibilityLabel="Open profile">
+          <Avatar uri={user.profilePhoto} name={user.fullName} size={40} borderColor={Colors.primaryContainer} />
+        </Pressable>
         <View style={styles.nameBlock}>
           <Text style={styles.name} numberOfLines={1}>{user.fullName}</Text>
           <Pressable

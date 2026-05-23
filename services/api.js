@@ -35,6 +35,7 @@ export async function clearTokens() {
   await Promise.all([
     tokenStorage.deleteItem(ACCESS_TOKEN_KEY),
     tokenStorage.deleteItem(REFRESH_TOKEN_KEY),
+    AsyncStorage.removeItem('rlp-auth-storage'),
   ]);
 }
 
@@ -42,9 +43,33 @@ export async function getAccessToken() {
   return tokenStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
+export async function getRefreshToken() {
+  return tokenStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function getApiErrorMessage(error, fallbackMessage = 'Something went wrong') {
+  const message = error?.response?.data?.message || error?.message;
+  return message || fallbackMessage;
+}
+
+export function logApiError(error, context = 'API request failed') {
+  const method = error?.config?.method?.toUpperCase?.() || 'UNKNOWN';
+  const url = error?.config?.baseURL
+    ? `${error.config.baseURL}${error.config.url || ''}`
+    : error?.config?.url;
+  const status = error?.response?.status;
+  console.error(context, {
+    method,
+    url,
+    status,
+    response: error?.response?.data,
+    message: error?.message,
+  });
+}
+
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -52,6 +77,15 @@ apiClient.interceptors.request.use(
   async (config) => {
     const token = await getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (typeof config.headers?.delete === 'function') {
+        config.headers.delete('Content-Type');
+        config.headers.delete('content-type');
+      } else {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
     return config;
   },
   (error) => Promise.reject(error),
@@ -72,7 +106,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    const status = error?.response?.status;
+    if (status && status !== 401) {
+      logApiError(error, 'HTTP request failed');
+    }
+    if (!originalRequest || status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
     if (isRefreshing) {
@@ -91,7 +129,11 @@ apiClient.interceptors.response.use(
       const refreshToken = await tokenStorage.getItem(REFRESH_TOKEN_KEY);
       if (!refreshToken) throw new Error('No refresh token');
       const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
-      const { accessToken: newAccessToken } = response.data;
+      const newAccessToken =
+        response.data?.accessToken
+        || response.data?.data?.accessToken
+        || response.data?.data?.tokens?.accessToken;
+      if (!newAccessToken) throw new Error('Refresh response did not include an access token');
       await tokenStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken);
       apiClient.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
       processQueue(null, newAccessToken);

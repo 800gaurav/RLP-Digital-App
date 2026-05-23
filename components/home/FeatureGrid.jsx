@@ -26,11 +26,12 @@ function FeatureCard({ icon, title, subtitle, onPress, badge, locked }) {
   );
 }
 
-export default function FeatureGrid({ user, onPadadhikariPress, onTrainingPress, onPosterPress, onStampPadPress }) {
+export default function FeatureGrid({ onPadadhikariPress, onTrainingPress, onPosterPress, onStatusPress }) {
   return (
     <View style={styles.grid}>
-      <FeatureCard icon="people" title="Padadhikari" subtitle="Party Officials" onPress={onPadadhikariPress} />
-      <FeatureCard icon="school" title="Training" subtitle="Learn & Grow" onPress={onTrainingPress} />
+      <FeatureCard icon="people" title="Padadhikari" subtitle="Leaders" onPress={onPadadhikariPress} />
+      <FeatureCard icon="school" title="Training" subtitle="Videos" onPress={onTrainingPress} />
+      <FeatureCard icon="play-circle" title="Status" subtitle="Party Updates" onPress={onStatusPress} />
       <FeatureCard
         icon="color-palette"
         title="Poster Maker"
@@ -38,7 +39,6 @@ export default function FeatureGrid({ user, onPadadhikariPress, onTrainingPress,
         onPress={onPosterPress}
         badge={<Badge label="Premium" variant="yellow" size="sm" />}
       />
-      <FeatureCard icon="document-text" title="Stamp Pad" subtitle="Draft Letters" onPress={onStampPadPress} locked={!user.stampPadAccess} />
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import apiClient from './api';
+import { normalizeUserMedia } from './media';
 
 export async function register(data) {
   const formData = new FormData();
@@ -15,12 +16,12 @@ export async function register(data) {
   const response = await apiClient.post('/auth/register', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return response.data.data;
+  return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
 }
 
 export async function login(email, password) {
   const response = await apiClient.post('/auth/login', { email, password });
-  return response.data.data;
+  return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
 }
 
 export async function refreshToken(token) {

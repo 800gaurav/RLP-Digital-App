@@ -1,7 +1,7 @@
 export const demoUser = {
   id: 'rlp-demo-member',
-  fullName: 'Hanuman Beniwal',
-  email: 'member@rlpdigital.in',
+  fullName: 'RLP Admin',
+  email: 'admin@rlp.com',
   voterId: 'RLP2024001',
   dob: '1972-03-02',
   gender: 'Male',

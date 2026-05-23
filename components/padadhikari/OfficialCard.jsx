@@ -4,6 +4,10 @@ import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
 export default function OfficialCard({ official, onPress }) {
+  const district = official.district || official.districtName || official.district_name;
+  const phone = official.phone || official.contactNumber || official.mobile || official.mobileNumber;
+  const location = [district || '-', official.state].filter(Boolean).join(', ');
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.88 }]}
@@ -21,10 +25,8 @@ export default function OfficialCard({ official, onPress }) {
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{official.fullName}</Text>
         <Text style={styles.designation} numberOfLines={1}>{official.designation}</Text>
-        <Text style={styles.location} numberOfLines={1}>{official.district}, {official.state}</Text>
-        <Text style={styles.contact} numberOfLines={1}>
-          {official.contactVisible ? official.phone ?? official.email ?? 'Contact visible' : 'Contact hidden'}
-        </Text>
+        <Text style={styles.location} numberOfLines={1}>{location}</Text>
+        <Text style={styles.contact} numberOfLines={1}>Phone: {phone || '-'}</Text>
       </View>
       <Text style={styles.chevron}>›</Text>
     </Pressable>

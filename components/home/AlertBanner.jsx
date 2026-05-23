@@ -17,7 +17,7 @@ export default function AlertBanner({ notification, onPress }) {
       </View>
       <View style={styles.content}>
         <Text style={styles.title} numberOfLines={1}>{notification.title}</Text>
-        <Text style={styles.body} numberOfLines={2}>{notification.body}</Text>
+        <Text style={styles.body} numberOfLines={2}>{notification.body || notification.message}</Text>
       </View>
       <Text style={styles.chevron}>›</Text>
     </Pressable>

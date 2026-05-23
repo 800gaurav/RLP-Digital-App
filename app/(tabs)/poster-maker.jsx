@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { getTemplates, getSubscriptionStatus } from '../../services/poster.service';
@@ -16,14 +16,21 @@ export default function PosterMakerScreen() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [editorVisible, setEditorVisible] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data: subscription, isLoading: loadingSubscription } = useQuery({ queryKey: ['subscription'], queryFn: getSubscriptionStatus });
-  const { data: templates = [], isLoading: loadingTemplates, error: templatesError } = useQuery({
+  const { data: subscription, isLoading: loadingSubscription, refetch: refetchSubscription } = useQuery({ queryKey: ['subscription'], queryFn: getSubscriptionStatus });
+  const { data: templates = [], isLoading: loadingTemplates, error: templatesError, refetch: refetchTemplates } = useQuery({
     queryKey: ['templates', selectedCategory],
     queryFn: () => getTemplates(selectedCategory === 'All' ? undefined : selectedCategory),
   });
 
   const isSubscribed = subscription?.active ?? false;
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchSubscription(), refetchTemplates()]);
+    setRefreshing(false);
+  };
 
   const handleTemplatePress = (template) => {
     if (template.isPremium && !isSubscribed) {
@@ -50,15 +57,21 @@ export default function PosterMakerScreen() {
       />
 
       {loadingTemplates || loadingSubscription ? (
-        <View style={styles.loadingState}>
+        <ScrollView
+          contentContainerStyle={styles.loadingState}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.rlpGreen} colors={[Colors.rlpGreen]} />}
+        >
           <ActivityIndicator color={Colors.rlpGreen} />
           <Text style={styles.loadingText}>Loading premium templates...</Text>
-        </View>
+        </ScrollView>
       ) : templatesError ? (
-        <View style={styles.loadingState}>
+        <ScrollView
+          contentContainerStyle={styles.loadingState}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.rlpGreen} colors={[Colors.rlpGreen]} />}
+        >
           <Text style={styles.errorTitle}>Templates unavailable</Text>
           <Text style={styles.loadingText}>Check your internet or backend connection.</Text>
-        </View>
+        </ScrollView>
       ) : (
         <TemplateGrid
           templates={templates}
@@ -66,6 +79,7 @@ export default function PosterMakerScreen() {
           onTemplatePress={handleTemplatePress}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.rlpGreen} colors={[Colors.rlpGreen]} />}
         />
       )}
 
@@ -93,7 +107,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
   header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant, backgroundColor: Colors.white },
   headerTitle: { fontFamily: FontFamily.bold, fontSize: 20, color: Colors.onSurface },
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  loadingState: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   loadingText: { fontFamily: FontFamily.regular, fontSize: 14, color: Colors.onSurfaceVariant, marginTop: 10, textAlign: 'center' },
   errorTitle: { fontFamily: FontFamily.bold, fontSize: 18, color: Colors.onSurface, marginBottom: 4 },
   editorSafeArea: { flex: 1, backgroundColor: '#F8F9FA' },

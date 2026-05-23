@@ -52,8 +52,23 @@ export async function updateAdminUserPermissions(id, data) {
 }
 
 export async function createBroadcastNotification(data) {
-  const response = await apiClient.post('/admin/notifications/broadcast', data);
+  const response = await apiClient.post('/notifications', data);
   return response.data.data;
+}
+
+export async function getNotifications() {
+  const response = await apiClient.get('/notifications');
+  return response.data.data;
+}
+
+export async function updateNotification(id, data) {
+  const response = await apiClient.put(`/notifications/${id}`, data);
+  return response.data.data;
+}
+
+export async function deleteNotification(id) {
+  const response = await apiClient.delete(`/notifications/${id}`);
+  return response.data;
 }
 
 export async function updateSubscriptionPrice(price) {

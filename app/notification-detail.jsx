@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../services/api';
 import Button from '../components/ui/Button';
 import AppBottomNav from '../components/navigation/AppBottomNav';
+import { normalizeMediaItem } from '../services/media';
+import { demoNotifications } from '../services/mockData';
 import { Colors } from '../constants/colors';
 import { FontFamily } from '../constants/typography';
 
@@ -15,12 +17,17 @@ export default function NotificationDetailScreen() {
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const res = await apiClient.get('/notifications');
-      return res.data.data;
+      try {
+        const res = await apiClient.get('/notifications');
+        return res.data.data.map(normalizeMediaItem);
+      } catch (error) {
+        if (!error.response) return demoNotifications;
+        throw error;
+      }
     },
   });
 
-  const notification = notifications.find((n) => n.id === id);
+  const notification = notifications.find((n) => String(n.id) === String(id));
   const formatDate = (iso) => new Date(iso).toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   const Header = () => (
@@ -55,7 +62,7 @@ export default function NotificationDetailScreen() {
         {notification.mediaUrl && (
           <Image source={{ uri: notification.mediaUrl }} style={styles.media} resizeMode="cover" accessibilityLabel="Notification image" />
         )}
-        <Text style={styles.body}>{notification.body}</Text>
+        <Text style={styles.body}>{notification.body || notification.message}</Text>
         <View style={styles.backHomeContainer}>
           <Button variant="primary" title="Back to Home" onPress={() => router.replace('/(tabs)')} />
         </View>
