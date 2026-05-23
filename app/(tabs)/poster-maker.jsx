@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { getTemplates, getSubscriptionStatus } from '../../services/poster.service';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { consumePosterDownload, getTemplates, getSubscriptionStatus } from '../../services/poster.service';
 import { useAuthStore } from '../../store/auth.store';
 import PaywallModal from '../../components/poster/PaywallModal';
 import TemplateGrid from '../../components/poster/TemplateGrid';
 import PosterEditor from '../../components/poster/PosterEditor';
+import { getApiErrorMessage, logApiError } from '../../services/api';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
 export default function PosterMakerScreen() {
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -25,6 +27,39 @@ export default function PosterMakerScreen() {
   });
 
   const isSubscribed = subscription?.active ?? false;
+  const categories = subscription?.categories || [];
+
+  useEffect(() => {
+    if (!selectedCategory || selectedCategory === 'All') return;
+    if (!categories.includes(selectedCategory)) setSelectedCategory('All');
+  }, [categories, selectedCategory]);
+
+  const handlePosterDownload = async (template) => {
+    if (!isSubscribed) {
+      setPaywallVisible(true);
+      return false;
+    }
+    if ((subscription?.downloadsRemaining ?? 0) <= 0) {
+      Alert.alert('Limit reached', 'Aapka monthly template download limit khatam ho gaya hai.');
+      return false;
+    }
+    try {
+      const usage = await consumePosterDownload(template.id);
+      queryClient.setQueryData(['subscription'], (current) => current ? {
+        ...current,
+        downloadsUsed: usage.downloadsUsed,
+        downloadsRemaining: usage.downloadsRemaining,
+        monthlyDownloadLimit: usage.monthlyDownloadLimit,
+      } : current);
+      return true;
+    } catch (error) {
+      logApiError(error, 'Poster download consume failed');
+      const code = error?.response?.data?.code;
+      if (code === 'SUBSCRIPTION_REQUIRED') setPaywallVisible(true);
+      else Alert.alert('Poster export blocked', getApiErrorMessage(error, 'Poster export abhi allow nahi hai.'));
+      return false;
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -33,10 +68,6 @@ export default function PosterMakerScreen() {
   };
 
   const handleTemplatePress = (template) => {
-    if (template.isPremium && !isSubscribed) {
-      setPaywallVisible(true);
-      return;
-    }
     setSelectedTemplate(template);
     setEditorVisible(true);
   };
@@ -51,7 +82,8 @@ export default function PosterMakerScreen() {
 
       <PaywallModal
         visible={paywallVisible}
-        price={99}
+        price={subscription?.price ?? 99}
+        monthlyLimit={subscription?.monthlyDownloadLimit}
         onSubscribe={() => { setPaywallVisible(false); Alert.alert('Subscribe', 'Razorpay subscription flow coming soon.'); }}
         onClose={() => setPaywallVisible(false)}
       />
@@ -79,6 +111,7 @@ export default function PosterMakerScreen() {
           onTemplatePress={handleTemplatePress}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
+          categories={categories}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.rlpGreen} colors={[Colors.rlpGreen]} />}
         />
       )}
@@ -94,7 +127,17 @@ export default function PosterMakerScreen() {
               <View style={{ width: 36 }} />
             </View>
             <ScrollView contentContainerStyle={styles.editorContent} showsVerticalScrollIndicator={false}>
-              <PosterEditor template={selectedTemplate} user={user} onClose={() => setEditorVisible(false)} />
+              <PosterEditor
+                template={selectedTemplate}
+                user={user}
+                onClose={() => setEditorVisible(false)}
+                onRequestDownload={handlePosterDownload}
+                helperText={
+                  isSubscribed
+                    ? `${subscription?.downloadsRemaining ?? 0} of ${subscription?.monthlyDownloadLimit ?? 0} downloads remaining this month.`
+                    : `Subscribe for ₹${subscription?.price ?? 99}/month to download or share posters.`
+                }
+              />
             </ScrollView>
           </SafeAreaView>
         </Modal>

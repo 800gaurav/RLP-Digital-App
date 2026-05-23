@@ -40,13 +40,17 @@ export function buildPosterSvg(template, user) {
 </svg>`;
 }
 
-export default function PosterEditor({ template, user, onClose }) {
+export default function PosterEditor({ template, user, onClose, onRequestDownload, helperText }) {
   const [saving, setSaving] = useState(false);
   const posterSvg = useMemo(() => buildPosterSvg(template, user), [template, user]);
 
   const handleDownload = async () => {
     setSaving(true);
     try {
+      if (onRequestDownload) {
+        const allowed = await onRequestDownload(template);
+        if (!allowed) return;
+      }
       const safeName = (template.name || 'rlp-poster').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
       const uri = `${FileSystem.documentDirectory}${safeName}-${Date.now()}.svg`;
       await FileSystem.writeAsStringAsync(uri, posterSvg, { encoding: FileSystem.EncodingType.UTF8 });
@@ -107,6 +111,7 @@ export default function PosterEditor({ template, user, onClose }) {
           <Text style={styles.downloadText}>{saving ? 'Preparing...' : 'Download Poster'}</Text>
         </Pressable>
       </View>
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
     </View>
   );
 }
@@ -132,4 +137,5 @@ const styles = StyleSheet.create({
   secondaryText: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurfaceVariant },
   downloadBtn: { flex: 1.4, backgroundColor: Colors.rlpYellow, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   downloadText: { fontFamily: FontFamily.bold, fontSize: 14, color: Colors.onSurface },
+  helperText: { width: '100%', maxWidth: 330, marginTop: 12, fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant, textAlign: 'center', lineHeight: 18 },
 });

@@ -39,6 +39,8 @@ export async function getAdminContentSummary() {
       return {
         officials: demoOfficials.length,
         subscriptionPrice: demoSubscription.price,
+        monthlyTemplateDownloadLimit: demoSubscription.monthlyDownloadLimit,
+        posterCategories: demoSubscription.categories,
         pendingUploads: 4,
       };
     }
@@ -71,7 +73,7 @@ export async function deleteNotification(id) {
   return response.data;
 }
 
-export async function updateSubscriptionPrice(price) {
-  const response = await apiClient.put('/admin/subscriptions/price', { price });
+export async function updatePosterPlanSettings(data) {
+  const response = await apiClient.put('/admin/subscriptions/settings', data);
   return response.data.data;
 }

@@ -51,7 +51,7 @@ export default function NotificationsScreen() {
             onPress={() => router.push({ pathname: '/notification-detail', params: { id: item.id } })}
             accessibilityRole="button"
           >
-            {item.mediaUrl ? <Image source={{ uri: item.mediaUrl }} style={styles.media} resizeMode="cover" /> : null}
+            {item.thumbnailUrl || item.imageUrl || item.mediaUrl ? <Image source={{ uri: item.thumbnailUrl || item.imageUrl || item.mediaUrl }} style={styles.media} resizeMode="cover" /> : null}
             <View style={styles.cardBody}>
               <View style={styles.titleRow}>
                 <Text style={styles.title} numberOfLines={1}>{item.title}</Text>

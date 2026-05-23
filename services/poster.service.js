@@ -1,7 +1,7 @@
 import { apiClient } from './api';
 import { demoSubscription, demoTemplates } from './mockData';
 import { normalizeMediaItem } from './media';
-import { createUploadFile, uploadConfig } from './upload';
+import { createUploadFile, uploadForm } from './upload';
 
 export async function getTemplates(category) {
   try {
@@ -29,28 +29,43 @@ export async function getSubscriptionStatus() {
   }
 }
 
-export async function createPosterTemplate({ name, category, imageUri, isPremium = false }) {
+export async function consumePosterDownload(templateId) {
+  const response = await apiClient.post(`/poster/templates/${templateId}/consume-download`);
+  return response.data.data;
+}
+
+export async function createPosterTemplate({ name, category, imageUri, imageUriName, imageUriMimeType, isPremium = false }) {
   const formData = new FormData();
   formData.append('name', name);
   formData.append('category', category);
   formData.append('isPremium', String(isPremium));
   if (imageUri) {
-    formData.append('image', createUploadFile(imageUri, { kind: 'image', fallbackName: 'template.jpg' }));
+    formData.append('image', createUploadFile(imageUri, {
+      kind: 'image',
+      fallbackName: 'template.jpg',
+      fileName: imageUriName,
+      mimeType: imageUriMimeType,
+    }));
   }
-  const response = await apiClient.post('/poster/templates', formData, uploadConfig());
-  return response.data.data;
+  const response = await uploadForm('/poster/templates', formData, { timeout: 300000 });
+  return normalizeMediaItem(response.data);
 }
 
-export async function updatePosterTemplate(id, { name, category, imageUri, isPremium }) {
+export async function updatePosterTemplate(id, { name, category, imageUri, imageUriName, imageUriMimeType, isPremium }) {
   const formData = new FormData();
   if (name !== undefined) formData.append('name', name);
   if (category !== undefined) formData.append('category', category);
   if (isPremium !== undefined) formData.append('isPremium', String(isPremium));
   if (imageUri) {
-    formData.append('image', createUploadFile(imageUri, { kind: 'image', fallbackName: 'template.jpg' }));
+    formData.append('image', createUploadFile(imageUri, {
+      kind: 'image',
+      fallbackName: 'template.jpg',
+      fileName: imageUriName,
+      mimeType: imageUriMimeType,
+    }));
   }
-  const response = await apiClient.put(`/poster/templates/${id}`, formData, uploadConfig());
-  return normalizeMediaItem(response.data.data);
+  const response = await uploadForm(`/poster/templates/${id}`, formData, { method: 'PUT', timeout: 300000 });
+  return normalizeMediaItem(response.data);
 }
 
 export async function deletePosterTemplate(id) {

@@ -50,12 +50,14 @@ export default function ReelViewer({
           <View style={styles.mediaContainer}>
             <Video
               ref={videoRef}
-              source={{ uri: reel.mediaUrl }}
+              source={{ uri: reel.videoUrl || reel.mediaUrl }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay
               isMuted
               isLooping
+              usePoster={Boolean(reel.thumbnailUrl)}
+              posterSource={reel.thumbnailUrl ? { uri: reel.thumbnailUrl } : undefined}
               onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
             />
             <Pressable style={styles.playPauseOverlay} onPress={togglePlayPause} accessibilityRole="button" accessibilityLabel="Play or pause">
@@ -66,7 +68,7 @@ export default function ReelViewer({
           </View>
         ) : (
           <View style={styles.mediaContainer}>
-            <Image source={{ uri: reel.mediaUrl }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
+            <Image source={{ uri: reel.imageUrl || reel.mediaUrl }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
           </View>
         )}
 

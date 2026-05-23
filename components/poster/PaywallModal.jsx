@@ -9,7 +9,7 @@ const BENEFITS = [
   'Personal Photo Customization',
 ];
 
-export default function PaywallModal({ visible, price, onSubscribe, onClose }) {
+export default function PaywallModal({ visible, price, monthlyLimit, onSubscribe, onClose }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -35,6 +35,7 @@ export default function PaywallModal({ visible, price, onSubscribe, onClose }) {
               <Text style={styles.price}>₹{price}</Text>
               <Text style={styles.pricePeriod}>/month</Text>
             </View>
+            {monthlyLimit ? <Text style={styles.limitText}>Up to {monthlyLimit} poster downloads per month</Text> : null}
           </View>
 
           <View style={styles.benefitsList}>
@@ -74,6 +75,7 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   price: { fontFamily: FontFamily.black, fontSize: 36, color: Colors.onSurface },
   pricePeriod: { fontFamily: FontFamily.regular, fontSize: 16, color: Colors.onSurfaceVariant },
+  limitText: { marginTop: 8, fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant, textAlign: 'center' },
   benefitsList: { paddingHorizontal: 28, gap: 12, marginBottom: 28 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkCircle: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.secondaryContainer, alignItems: 'center', justifyContent: 'center' },

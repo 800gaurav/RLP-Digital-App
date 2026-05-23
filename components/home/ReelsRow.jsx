@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
 export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
+  useEffect(() => {
+    reels.slice(0, 12).forEach((reel) => {
+      const previewUrl = reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl;
+      if (previewUrl) Image.prefetch(previewUrl);
+    });
+  }, [reels]);
+
   return (
     <View style={styles.section}>
       <View style={styles.header}>
@@ -28,8 +35,8 @@ export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
               accessibilityLabel={reel.caption || 'Status update'}
             >
               <View style={styles.ring}>
-                {reel.mediaUrl ? (
-                  <Image source={{ uri: reel.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
+                {(reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl) ? (
+                  <Image source={{ uri: reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
                 ) : (
                   <View style={[styles.thumbnail, styles.thumbnailFallback]}>
                     <Ionicons name="image-outline" size={24} color={Colors.rlpYellow} />

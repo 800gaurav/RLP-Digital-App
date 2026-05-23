@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -29,6 +29,13 @@ export default function StatusScreen() {
   });
 
   const reels = data?.pages.flatMap((page) => page.items) || [];
+
+  useEffect(() => {
+    reels.slice(0, 12).forEach((reel) => {
+      const previewUrl = reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl;
+      if (previewUrl) Image.prefetch(previewUrl);
+    });
+  }, [reels]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -89,7 +96,7 @@ export default function StatusScreen() {
   const renderItem = ({ item, index }) => (
     <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]} onPress={() => handleReelPress(item, index)} accessibilityRole="button" accessibilityLabel={item.caption}>
       <View style={styles.thumbContainer}>
-        <Image source={{ uri: item.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
+        <Image source={{ uri: item.thumbnailUrl || item.imageUrl || item.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
         {item.mediaType === 'video' && (
           <View style={styles.playOverlay}>
             <Text style={styles.playIcon}>Play</Text>

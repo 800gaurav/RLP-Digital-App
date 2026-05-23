@@ -109,6 +109,10 @@ export const demoSubscription = {
   active: true,
   plan: 'premium',
   price: 99,
+  monthlyDownloadLimit: 30,
+  downloadsUsed: 0,
+  downloadsRemaining: 30,
+  categories: ['Rally', 'Tyohaar', 'Shubhkamnayen', 'Leadership', 'Election 2024'],
 };
 
 export const demoAdminStats = {

@@ -60,7 +60,7 @@ export async function createReel({ caption, mediaUri, mediaType, mediaUriName, m
     }));
   }
   const response = await uploadForm('/reels', formData, { timeout: 300000 });
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function updateReel(id, { caption, mediaUri, mediaType, mediaUriName, mediaUriMimeType }) {
@@ -81,7 +81,7 @@ export async function updateReel(id, { caption, mediaUri, mediaType, mediaUriNam
     }));
   }
   const response = await uploadForm(`/reels/${id}`, formData, { method: 'PUT', timeout: 300000 });
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function deleteReel(id) {
@@ -90,9 +90,9 @@ export async function deleteReel(id) {
 }
 
 export async function downloadReel(reel) {
-  const mediaUrl = resolveMediaUrl(reel.mediaUrl);
+  const mediaUrl = resolveMediaUrl(reel.videoUrl || reel.imageUrl || reel.mediaUrl);
   if (!mediaUrl) throw new Error('Media URL is missing');
-  const extension = reel.mediaType === 'video' ? 'mp4' : 'jpg';
+  const extension = reel.mediaType === 'video' ? 'mp4' : 'webp';
   let filename = (mediaUrl.split('/').pop()?.split('?')[0]) || `reel-${reel.id}.${extension}`;
   if (!filename.includes('.')) filename = `${filename}.${extension}`;
   const localUri = `${FileSystem.cacheDirectory}${filename}`;
@@ -115,7 +115,7 @@ export async function downloadReel(reel) {
     const canShare = await Sharing.isAvailableAsync();
     if (!canShare) throw galleryError;
     await Sharing.shareAsync(downloadResult.uri, {
-      mimeType: reel.mediaType === 'video' ? 'video/mp4' : 'image/jpeg',
+      mimeType: reel.mediaType === 'video' ? 'video/mp4' : 'image/webp',
       dialogTitle: 'Save Status',
     });
     return { savedTo: 'share' };

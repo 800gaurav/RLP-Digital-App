@@ -73,7 +73,7 @@ export async function createTrainingVideo(data) {
     }));
   }
   const response = await uploadForm('/training-videos', formData, { timeout: 300000 });
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function updateTrainingVideo(id, data) {
@@ -110,7 +110,7 @@ export async function updateTrainingVideo(id, data) {
     }));
   }
   const response = await uploadForm(`/training-videos/${id}`, formData, { method: 'PUT', timeout: 300000 });
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function deleteTrainingVideo(id) {

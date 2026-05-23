@@ -3,10 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
-const CATEGORIES = ['All Templates', 'Tyohaar', 'Rally', 'Shubhkamnayen', 'Election 2024', 'Leadership'];
-
 function TemplateCard({ template, isSubscribed, onPress }) {
-  const locked = template.isPremium && !isSubscribed;
   return (
     <Pressable
       style={({ pressed }) => [styles.templateCard, pressed && { opacity: 0.85 }]}
@@ -20,14 +17,6 @@ function TemplateCard({ template, isSubscribed, onPress }) {
         <View style={[styles.templateImage, styles.templateFallback, { backgroundColor: template.accent ?? Colors.rlpGreen }]}>
           <Text style={styles.templateFallbackKicker}>RLP DIGITAL</Text>
           <Text style={styles.templateFallbackTitle}>{template.name}</Text>
-        </View>
-      )}
-      {locked && (
-        <View style={styles.lockOverlay}>
-          <View style={styles.lockBadge}>
-            <Text style={styles.lockIcon}>LOCK</Text>
-            <Text style={styles.lockText}>PREMIUM</Text>
-          </View>
         </View>
       )}
       {!template.isPremium && (
@@ -47,10 +36,11 @@ function TemplateCard({ template, isSubscribed, onPress }) {
   );
 }
 
-export default function TemplateGrid({ templates, isSubscribed, onTemplatePress, selectedCategory, onCategoryChange, refreshControl }) {
+export default function TemplateGrid({ templates, isSubscribed, onTemplatePress, selectedCategory, onCategoryChange, refreshControl, categories = [] }) {
   const filtered = selectedCategory === 'All Templates' || selectedCategory === 'All'
     ? templates
     : templates.filter((t) => t.category.toLowerCase() === selectedCategory.toLowerCase());
+  const chips = ['All', ...categories.filter(Boolean)];
 
   const rows = [];
   for (let i = 0; i < filtered.length; i += 2) rows.push(filtered.slice(i, i + 2));
@@ -59,14 +49,14 @@ export default function TemplateGrid({ templates, isSubscribed, onTemplatePress,
     <View style={styles.container}>
       {/* Category chips matching Figma */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll} style={styles.chipsContainer}>
-        {CATEGORIES.map((cat) => (
+        {chips.map((cat) => (
           <Pressable
             key={cat}
-            style={({ pressed }) => [styles.chip, (selectedCategory === cat || (cat === 'All Templates' && selectedCategory === 'All')) && styles.chipActive, pressed && { opacity: 0.75 }]}
-            onPress={() => onCategoryChange(cat === 'All Templates' ? 'All' : cat)}
+            style={({ pressed }) => [styles.chip, selectedCategory === cat && styles.chipActive, pressed && { opacity: 0.75 }]}
+            onPress={() => onCategoryChange(cat)}
             accessibilityRole="button"
           >
-            <Text style={[styles.chipText, (selectedCategory === cat || (cat === 'All Templates' && selectedCategory === 'All')) && styles.chipTextActive]}>{cat}</Text>
+            <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>{cat}</Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -108,10 +98,6 @@ const styles = StyleSheet.create({
   templateFallback: { padding: 14, justifyContent: 'space-between' },
   templateFallbackKicker: { fontFamily: FontFamily.bold, fontSize: 10, color: Colors.rlpYellow, letterSpacing: 0.8 },
   templateFallbackTitle: { fontFamily: FontFamily.black, fontSize: 20, lineHeight: 24, color: Colors.white },
-  lockOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
-  lockBadge: { backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  lockIcon: { fontFamily: FontFamily.bold, fontSize: 9, color: '#1a1a1a' },
-  lockText: { fontFamily: FontFamily.bold, fontSize: 10, color: '#1a1a1a' },
   badge: { position: 'absolute', top: 8, borderRadius: 4, paddingVertical: 2, paddingHorizontal: 6 },
   newBadge: { left: 8, backgroundColor: Colors.rlpGreen },
   premiumBadge: { right: 8, backgroundColor: 'rgba(255,255,255,0.9)' },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -26,6 +26,12 @@ export default function TrainingVideosScreen() {
   });
 
   const videos = data?.pages.flatMap((page) => page.items) || [];
+
+  useEffect(() => {
+    videos.slice(0, 12).forEach((video) => {
+      if (video.thumbnailUrl) Image.prefetch(video.thumbnailUrl);
+    });
+  }, [videos]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

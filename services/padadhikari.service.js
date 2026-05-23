@@ -43,7 +43,7 @@ export async function createPadadhikari(data) {
     }));
   }
   const response = await uploadForm('/padadhikari', formData);
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function updatePadadhikari(id, data) {
@@ -75,7 +75,7 @@ export async function updatePadadhikari(id, data) {
     }));
   }
   const response = await uploadForm(`/padadhikari/${id}`, formData, { method: 'PUT' });
-  return normalizeMediaItem(response.data);
+  return normalizeMediaItem(response.data.data);
 }
 
 export async function deletePadadhikari(id) {

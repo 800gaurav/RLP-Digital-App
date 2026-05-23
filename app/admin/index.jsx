@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -13,7 +13,7 @@ import {
   getAdminOverview,
   getNotifications,
   updateNotification,
-  updateSubscriptionPrice,
+  updatePosterPlanSettings,
 } from '../../services/admin.service';
 import { useAuthStore } from '../../store/auth.store';
 import { createPosterTemplate, deletePosterTemplate, getTemplates, updatePosterTemplate } from '../../services/poster.service';
@@ -62,6 +62,7 @@ const emptyReel = { caption: '', mediaUri: '', mediaType: 'image' };
 const emptyTemplate = { name: '', category: 'Rally', imageUri: '', isPremium: true };
 const emptyNotification = { title: 'RLP Suchna', body: '', priority: true };
 const HISTORY_PAGE_SIZE = 8;
+const DEFAULT_POSTER_CATEGORIES = ['Rally', 'Tyohaar', 'Shubhkamnayen', 'Leadership', 'Election 2024'];
 
 function getOfficialLevelLabel(rank) {
   return OFFICIAL_LEVELS.find((item) => item.value === rank)?.label || 'District';
@@ -226,6 +227,8 @@ export default function AdminDashboardScreen() {
   const [saving, setSaving] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [price, setPrice] = useState('');
+  const [downloadLimit, setDownloadLimit] = useState('');
+  const [categoryDraft, setCategoryDraft] = useState('');
   const [editing, setEditing] = useState({});
   const [notification, setNotification] = useState(emptyNotification);
   const [official, setOfficial] = useState(emptyOfficial);
@@ -249,6 +252,25 @@ export default function AdminDashboardScreen() {
   const { data: reels = [], refetch: refetchReels } = useQuery({ queryKey: ['admin-reels'], queryFn: getReels, enabled: canAccessAdmin });
   const { data: trainings = [], refetch: refetchTrainings } = useQuery({ queryKey: ['admin-training'], queryFn: getTrainingVideos, enabled: canAccessAdmin });
   const { data: templates = [], refetch: refetchTemplates } = useQuery({ queryKey: ['admin-templates'], queryFn: () => getTemplates(), enabled: canAccessAdmin });
+  const posterCategories = content?.posterCategories?.length ? content.posterCategories : DEFAULT_POSTER_CATEGORIES;
+
+  useEffect(() => {
+    if (!content) return;
+    const nextPrice = String(content.subscriptionPrice ?? '');
+    const nextDownloadLimit = String(content.monthlyTemplateDownloadLimit ?? '');
+    const nextCategoryDraft = (content.posterCategories || []).join(', ');
+    const allowedCategories = content.posterCategories?.length ? content.posterCategories : DEFAULT_POSTER_CATEGORIES;
+    const fallbackCategory = allowedCategories[0] || DEFAULT_POSTER_CATEGORIES[0];
+
+    setPrice((current) => (current === nextPrice ? current : nextPrice));
+    setDownloadLimit((current) => (current === nextDownloadLimit ? current : nextDownloadLimit));
+    setCategoryDraft((current) => (current === nextCategoryDraft ? current : nextCategoryDraft));
+    setTemplate((current) => {
+      const nextCategory = allowedCategories.includes(current.category) ? current.category : fallbackCategory;
+      return nextCategory === current.category ? current : { ...current, category: nextCategory };
+    });
+  }, [content]);
+
   const stats = useMemo(() => overview ?? {}, [overview]);
   const historyItems = useMemo(() => {
     const normalizeDate = (item) => item.createdAt || item.updatedAt || item.date || item.issueDate || '';
@@ -467,14 +489,48 @@ export default function AdminDashboardScreen() {
     if (!numericPrice || numericPrice < 1) return Alert.alert('Subscription', 'Valid monthly price dalein.');
     setSaving('price');
     try {
-      await updateSubscriptionPrice(numericPrice);
-      setPrice('');
+      await updatePosterPlanSettings({ price: numericPrice });
       await Promise.all([refetchContent(), refetchOverview()]);
       invalidatePublicData();
       Alert.alert('Done', 'Subscription price update ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin subscription price update failed');
       Alert.alert('Failed', getApiErrorMessage(error, 'Price update nahi hua.'));
+    } finally {
+      setSaving('');
+    }
+  }
+
+  async function submitDownloadLimit() {
+    const numericLimit = Number(downloadLimit);
+    if (!numericLimit || numericLimit < 1) return Alert.alert('Limit', 'Valid monthly download limit dalein.');
+    setSaving('limit');
+    try {
+      await updatePosterPlanSettings({ monthlyDownloadLimit: numericLimit });
+      await Promise.all([refetchContent(), refetchOverview()]);
+      invalidatePublicData();
+      Alert.alert('Done', 'Template download limit update ho gayi.');
+    } catch (error) {
+      logApiError(error, 'Admin poster download limit update failed');
+      Alert.alert('Failed', getApiErrorMessage(error, 'Download limit update nahi hui.'));
+    } finally {
+      setSaving('');
+    }
+  }
+
+  async function submitPosterCategories() {
+    const categories = categoryDraft.split(',').map((item) => item.trim()).filter(Boolean);
+    if (!categories.length) return Alert.alert('Categories', 'Kam se kam ek category jaruri hai.');
+    setSaving('categories');
+    try {
+      await updatePosterPlanSettings({ categories });
+      await Promise.all([refetchContent(), refetchTemplates()]);
+      invalidatePublicData();
+      setTemplate((current) => ({ ...current, category: categories.includes(current.category) ? current.category : categories[0] }));
+      Alert.alert('Done', 'Poster categories update ho gayi.');
+    } catch (error) {
+      logApiError(error, 'Admin poster categories update failed');
+      Alert.alert('Failed', getApiErrorMessage(error, 'Poster categories update nahi hui.'));
     } finally {
       setSaving('');
     }
@@ -526,7 +582,7 @@ export default function AdminDashboardScreen() {
       return;
     }
     setEditing((p) => ({ ...p, template: item.id }));
-    setTemplate({ ...emptyTemplate, name: item.name || '', category: item.category || 'Rally', isPremium: !!item.isPremium });
+    setTemplate({ ...emptyTemplate, name: item.name || '', category: item.category || posterCategories[0] || 'Rally', isPremium: !!item.isPremium });
     setTab('posters');
   }
 
@@ -817,12 +873,33 @@ export default function AdminDashboardScreen() {
               <Field label={`Monthly Price (current Rs ${content?.subscriptionPrice ?? 99})`} value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="Example: 99" />
               <PrimaryButton title="Update Plan Price" icon="cash" onPress={submitPrice} loading={saving === 'price'} />
             </View>
+            <View style={styles.card}>
+              <Field label={`Template Download Limit (current ${content?.monthlyTemplateDownloadLimit ?? 30})`} value={downloadLimit} onChangeText={setDownloadLimit} keyboardType="numeric" placeholder="Example: 30" />
+              <PrimaryButton title="Update Download Limit" icon="download" onPress={submitDownloadLimit} loading={saving === 'limit'} />
+            </View>
+            <View style={styles.card}>
+              <Field label="Poster Categories" value={categoryDraft} onChangeText={setCategoryDraft} placeholder="Rally, Tyohaar, Shubhkamnayen" />
+              <Text style={styles.helperLabel}>Comma se categories separate karein. Yehi user ko category chips aur admin dropdown me dikhenge.</Text>
+              <PrimaryButton title="Update Categories" icon="list" onPress={submitPosterCategories} loading={saving === 'categories'} />
+            </View>
             <Text style={styles.sectionTitle}>{editing.template ? 'Edit Template' : 'Upload Template'}</Text>
             <View style={styles.card}>
               <Field label="Template Name" value={template.name} onChangeText={(v) => setTemplate((p) => ({ ...p, name: v }))} />
-              <Field label="Category" value={template.category} onChangeText={(v) => setTemplate((p) => ({ ...p, category: v }))} />
+              <SelectField label="Category" value={template.category} options={posterCategories} onSelect={(v) => setTemplate((p) => ({ ...p, category: v }))} placeholder="Select category" />
               <View style={styles.inlineSwitch}><Text style={styles.fieldLabel}>Premium Template</Text><Switch value={template.isPremium} onValueChange={(v) => setTemplate((p) => ({ ...p, isPremium: v }))} /></View>
               <Pressable style={styles.outlineButton} onPress={() => pickMedia('template', setTemplate, 'imageUri')}><Ionicons name="image" size={18} color={Colors.rlpGreen} /><Text style={styles.outlineButtonText}>Pick Template Image</Text></Pressable>
+              {template.imageUri ? (
+                <View style={styles.compactMediaBox}>
+                  <Image source={{ uri: template.imageUri }} style={styles.compactMediaImage} resizeMode="cover" />
+                  <View style={styles.compactMediaBody}>
+                    <Text style={styles.compactMediaTitle}>Template selected</Text>
+                    <Text style={styles.compactMediaMeta} numberOfLines={1}>{template.imageUriName || 'Ready to upload'}</Text>
+                  </View>
+                  <View style={styles.compactCheckIcon}>
+                    <Ionicons name="checkmark" size={14} color={Colors.white} />
+                  </View>
+                </View>
+              ) : null}
               <PrimaryButton title={editing.template ? 'Update Template' : 'Upload Template'} icon="cloud-upload" onPress={saveTemplate} loading={saving === 'template'} />
             </View>
             {renderRecentHistory('templates', 'Recent Poster History')}
@@ -988,6 +1065,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.white, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.outlineVariant, gap: 12, marginBottom: 8 },
   field: { gap: 6 },
   fieldLabel: { fontFamily: FontFamily.semiBold, fontSize: 12, color: Colors.onSurfaceVariant },
+  helperLabel: { fontFamily: FontFamily.medium, fontSize: 11, color: Colors.onSurfaceVariant, lineHeight: 16 },
   input: { borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontFamily: FontFamily.regular, fontSize: 14, color: Colors.onSurface, backgroundColor: Colors.surfaceContainerLow },
   inputMultiline: { minHeight: 78, textAlignVertical: 'top' },
   selectControl: { minHeight: 44, borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 10, paddingHorizontal: 12, backgroundColor: Colors.surfaceContainerLow, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

@@ -59,9 +59,9 @@ export default function NotificationDetailScreen() {
         )}
         <Text style={styles.title}>{notification.title}</Text>
         <Text style={styles.date}>{formatDate(notification.createdAt)}</Text>
-        {notification.mediaUrl && (
-          <Image source={{ uri: notification.mediaUrl }} style={styles.media} resizeMode="cover" accessibilityLabel="Notification image" />
-        )}
+        {notification.thumbnailUrl || notification.imageUrl || notification.mediaUrl ? (
+          <Image source={{ uri: notification.imageUrl || notification.thumbnailUrl || notification.mediaUrl }} style={styles.media} resizeMode="cover" accessibilityLabel="Notification image" />
+        ) : null}
         <Text style={styles.body}>{notification.body || notification.message}</Text>
         <View style={styles.backHomeContainer}>
           <Button variant="primary" title="Back to Home" onPress={() => router.replace('/(tabs)')} />
