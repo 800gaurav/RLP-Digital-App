@@ -40,9 +40,7 @@ export default function DigitalIdScreen() {
   async function captureCard() {
     if (!cardRef.current?.capture) throw new Error('ID card preview is not ready yet. Please try again.');
 
-    // The card is rendered using React Native views plus SVG QR code.
-    // Direct SVG export/share is unreliable in Expo Go, so we capture
-    // the rendered card as a PNG image before share/download.
+    // Capture the rendered card as a PNG image before share/download.
     return cardRef.current.capture();
   }
 

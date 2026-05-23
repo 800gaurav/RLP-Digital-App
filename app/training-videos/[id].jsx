@@ -16,6 +16,9 @@ function isYouTubeUrl(url = '') {
 export default function TrainingVideoDetailScreen() {
   const { id } = useLocalSearchParams();
   const videoRef = useRef(null);
+  const openingFullscreenRef = useRef(false);
+  const fullscreenOpenedRef = useRef(false);
+  const resettingFinishedVideoRef = useRef(false);
   const { data: videos = [] } = useQuery({ queryKey: ['training-videos'], queryFn: getTrainingVideos });
   const video = videos.find((v) => v.id === id);
 
@@ -52,6 +55,31 @@ export default function TrainingVideoDetailScreen() {
 
   const isYT = isYouTubeUrl(video.videoUrl);
 
+  const handlePlaybackStatusUpdate = async (status) => {
+    if (!status.isLoaded || !videoRef.current) return;
+
+    if (!fullscreenOpenedRef.current && !openingFullscreenRef.current) {
+      openingFullscreenRef.current = true;
+      try {
+        await videoRef.current.presentFullscreenPlayer();
+        fullscreenOpenedRef.current = true;
+      } catch (_error) {
+      } finally {
+        openingFullscreenRef.current = false;
+      }
+    }
+
+    if (status.didJustFinish && !resettingFinishedVideoRef.current) {
+      resettingFinishedVideoRef.current = true;
+      try {
+        await videoRef.current.setStatusAsync({ shouldPlay: false, positionMillis: 0 });
+      } catch (_error) {
+      } finally {
+        resettingFinishedVideoRef.current = false;
+      }
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <Header title={video.title} />
@@ -73,6 +101,7 @@ export default function TrainingVideoDetailScreen() {
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls
                 shouldPlay={false}
+                onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
               />
             </View>
           )}

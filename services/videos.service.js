@@ -14,6 +14,31 @@ export async function getTrainingVideos() {
   }
 }
 
+export async function getTrainingVideosPage({ page = 1, limit = 10 } = {}) {
+  try {
+    const response = await apiClient.get('/training-videos', { params: { page, limit } });
+    const items = (response.data.data || []).map(normalizeMediaItem);
+    const pagination = response.data.pagination;
+    return {
+      items,
+      nextPage: pagination?.nextPage ?? null,
+      hasNextPage: Boolean(pagination?.hasNextPage),
+    };
+  } catch (error) {
+    if (!error.response) {
+      const start = (page - 1) * limit;
+      const items = demoTrainingVideos.slice(start, start + limit);
+      const nextPage = start + limit < demoTrainingVideos.length ? page + 1 : null;
+      return {
+        items,
+        nextPage,
+        hasNextPage: Boolean(nextPage),
+      };
+    }
+    throw error;
+  }
+}
+
 export async function createTrainingVideo(data) {
   if (!data.videoUri && !data.thumbnailUri) {
     const response = await apiClient.post('/training-videos', {

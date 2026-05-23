@@ -1,10 +1,8 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
-import { VERIFY_BASE_URL } from '../../services/config';
 import { resolveMediaUrl } from '../../services/media';
 
 function BottleMark() {
@@ -19,7 +17,6 @@ function BottleMark() {
 }
 
 export default function IDCard({ user }) {
-  const qrValue = `${VERIFY_BASE_URL}/${user.id}`;
   const profilePhoto = resolveMediaUrl(user.profilePhoto);
   const issueDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -73,20 +70,16 @@ export default function IDCard({ user }) {
             <Text style={styles.smallLabel}>Digital Stamp</Text>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureText}>Authorized Signatory</Text>
-            <View style={styles.metaRow}>
-              <View>
-                <Text style={styles.smallLabel}>Issue Date</Text>
-                <Text style={styles.metaValue}>{issueDate}</Text>
-              </View>
-              <View>
-                <Text style={styles.smallLabel}>Validity</Text>
-                <Text style={styles.metaValueGreen}>Lifetime</Text>
-              </View>
-            </View>
           </View>
-          <View style={styles.qrBox}>
-            <QRCode value={qrValue} size={70} backgroundColor={Colors.white} color={Colors.onSurface} />
-            <Text style={styles.qrText}>Scan to Verify</Text>
+          <View style={styles.metaBlock}>
+            <View>
+              <Text style={styles.smallLabel}>Issue Date</Text>
+              <Text style={styles.metaValue}>{issueDate}</Text>
+            </View>
+            <View>
+              <Text style={styles.smallLabel}>Validity</Text>
+              <Text style={styles.metaValueGreen}>Lifetime</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -130,14 +123,12 @@ const styles = StyleSheet.create({
   voterLabel: { fontFamily: FontFamily.black, fontSize: 9, color: 'rgba(35,27,0,0.56)', letterSpacing: 0.8 },
   voterValue: { fontFamily: FontFamily.bold, fontSize: 12, color: '#231B00' },
   location: { fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(35,27,0,0.76)', marginTop: 10 },
-  footer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
-  signatureBlock: { flex: 1, paddingRight: 12 },
+  footer: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
+  signatureBlock: { flex: 1, paddingTop: 16, paddingRight: 14 },
   smallLabel: { fontFamily: FontFamily.black, fontSize: 8, color: 'rgba(35,27,0,0.48)', letterSpacing: 0.9, textTransform: 'uppercase' },
   signatureLine: { width: 118, height: 1, backgroundColor: 'rgba(35,27,0,0.55)', marginTop: 18, marginBottom: 4 },
-  signatureText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.7)', marginBottom: 10 },
-  metaRow: { flexDirection: 'row', gap: 18 },
+  signatureText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.7)' },
+  metaBlock: { width: 104, minHeight: 96, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.46)', padding: 10, justifyContent: 'space-between' },
   metaValue: { fontFamily: FontFamily.bold, fontSize: 11, color: '#231B00', marginTop: 2 },
   metaValueGreen: { fontFamily: FontFamily.bold, fontSize: 11, color: Colors.rlpGreen, marginTop: 2 },
-  qrBox: { backgroundColor: Colors.white, borderRadius: 14, padding: 9, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 4 },
-  qrText: { fontFamily: FontFamily.bold, fontSize: 8, color: Colors.onSurfaceVariant, marginTop: 5 },
 });
