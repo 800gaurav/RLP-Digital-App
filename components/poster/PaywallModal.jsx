@@ -4,10 +4,10 @@ import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
 const BENEFITS = [
-  '500+ Premium Templates',
+  '50+ Premium Templates',
   'No Watermark & HD Export',
   'Personal Details Customization',
-  'Choose Your Own Theme',
+  'Choose Different Themes',
 ];
 
 export default function PaywallModal({ visible, price, monthlyLimit, onSubscribe, onClose }) {
