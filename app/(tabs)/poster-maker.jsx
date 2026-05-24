@@ -34,7 +34,7 @@ export default function PosterMakerScreen() {
     if (!categories.includes(selectedCategory)) setSelectedCategory('All');
   }, [categories, selectedCategory]);
 
-  const handlePosterDownload = async (template) => {
+  const handlePosterExportAccess = async (template, _actionType) => {
     if (!isSubscribed) {
       setPaywallVisible(true);
       return false;
@@ -123,7 +123,7 @@ export default function PosterMakerScreen() {
               <Pressable style={({ pressed }) => [styles.editorCloseBtn, pressed && { opacity: 0.6 }]} onPress={() => setEditorVisible(false)} accessibilityRole="button" accessibilityLabel="Close editor">
                 <Text style={styles.editorCloseIcon}>✕</Text>
               </Pressable>
-              <Text style={styles.editorTitle}>Edit Poster</Text>
+              <Text style={styles.editorTitle}>Poster Details</Text>
               <View style={{ width: 36 }} />
             </View>
             <ScrollView contentContainerStyle={styles.editorContent} showsVerticalScrollIndicator={false}>
@@ -131,10 +131,10 @@ export default function PosterMakerScreen() {
                 template={selectedTemplate}
                 user={user}
                 onClose={() => setEditorVisible(false)}
-                onRequestDownload={handlePosterDownload}
+                onRequestDownload={handlePosterExportAccess}
                 helperText={
                   isSubscribed
-                    ? `${subscription?.downloadsRemaining ?? 0} of ${subscription?.monthlyDownloadLimit ?? 0} downloads remaining this month.`
+                    ? `${subscription?.downloadsRemaining ?? 0} of ${subscription?.monthlyDownloadLimit ?? 0} exports remaining this month.`
                     : `Subscribe for ₹${subscription?.price ?? 99}/month to download or share posters.`
                 }
               />

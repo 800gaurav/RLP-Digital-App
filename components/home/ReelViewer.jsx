@@ -4,6 +4,16 @@ import { Video, ResizeMode } from 'expo-av';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
+function getImageUri(reel) {
+  if (!reel || reel.mediaType === 'video') return '';
+  return reel.imageUrl || reel.thumbnailUrl || '';
+}
+
+function getVideoUri(reel) {
+  if (!reel || reel.mediaType !== 'video') return '';
+  return reel.videoUrl || reel.mediaUrl || '';
+}
+
 export default function ReelViewer({
   reel,
   visible,
@@ -50,7 +60,7 @@ export default function ReelViewer({
           <View style={styles.mediaContainer}>
             <Video
               ref={videoRef}
-              source={{ uri: reel.videoUrl || reel.mediaUrl }}
+              source={{ uri: getVideoUri(reel) }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay
@@ -68,7 +78,13 @@ export default function ReelViewer({
           </View>
         ) : (
           <View style={styles.mediaContainer}>
-            <Image source={{ uri: reel.imageUrl || reel.mediaUrl }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
+            {getImageUri(reel) ? (
+              <Image source={{ uri: getImageUri(reel) }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
+            ) : (
+              <View style={styles.imageFallback}>
+                <Text style={styles.imageFallbackText}>Media unavailable</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -135,6 +151,8 @@ const styles = StyleSheet.create({
   mediaContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   video: { width: '100%', height: '100%' },
   image: { width: '100%', height: '100%' },
+  imageFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  imageFallbackText: { fontFamily: FontFamily.medium, fontSize: 14, color: 'rgba(255,255,255,0.82)' },
   playPauseOverlay: {
     position: 'absolute',
     top: '36%',

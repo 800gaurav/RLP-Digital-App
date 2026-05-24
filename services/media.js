@@ -2,13 +2,26 @@ import { API_BASE_URL } from './config';
 
 const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, '');
 
+function remapUploadUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.pathname?.startsWith('/uploads/')) {
+      return `${apiOrigin}${parsedUrl.pathname}${parsedUrl.search || ''}`;
+    }
+    return url;
+  } catch (_error) {
+    return url;
+  }
+}
+
 export function resolveMediaUrl(url) {
   if (!url || typeof url !== 'string') return '';
   const trimmedUrl = url.trim();
   if (!trimmedUrl || trimmedUrl === 'null' || trimmedUrl === 'undefined') return '';
   if (trimmedUrl.startsWith('/uploads/')) return `${apiOrigin}${trimmedUrl}`;
   if (trimmedUrl.startsWith('uploads/')) return `${apiOrigin}/${trimmedUrl}`;
-  return trimmedUrl.replace(/^https?:\/\/(localhost|127\.0\.0\.1):\d+/i, apiOrigin);
+  const localhostRewritten = trimmedUrl.replace(/^https?:\/\/(localhost|127\.0\.0\.1):\d+/i, apiOrigin);
+  return remapUploadUrl(localhostRewritten);
 }
 
 export function getUserProfilePhoto(user) {

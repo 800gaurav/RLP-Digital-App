@@ -4,10 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
+function getReelPreviewUrl(reel) {
+  if (!reel) return '';
+  if (reel.mediaType === 'video') return reel.thumbnailUrl || '';
+  return reel.thumbnailUrl || reel.imageUrl || '';
+}
+
 export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
   useEffect(() => {
     reels.slice(0, 12).forEach((reel) => {
-      const previewUrl = reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl;
+      const previewUrl = getReelPreviewUrl(reel);
       if (previewUrl) Image.prefetch(previewUrl);
     });
   }, [reels]);
@@ -35,8 +41,8 @@ export default function ReelsRow({ reels, onReelPress, onViewAllPress }) {
               accessibilityLabel={reel.caption || 'Status update'}
             >
               <View style={styles.ring}>
-                {(reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl) ? (
-                  <Image source={{ uri: reel.thumbnailUrl || reel.imageUrl || reel.mediaUrl }} style={styles.thumbnail} resizeMode="cover" />
+                {getReelPreviewUrl(reel) ? (
+                  <Image source={{ uri: getReelPreviewUrl(reel) }} style={styles.thumbnail} resizeMode="cover" />
                 ) : (
                   <View style={[styles.thumbnail, styles.thumbnailFallback]}>
                     <Ionicons name="image-outline" size={24} color={Colors.rlpYellow} />
