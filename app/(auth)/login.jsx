@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -23,6 +24,7 @@ function BottleLogoSmall() {
 }
 
 export default function LoginScreen() {
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
   const setLoading = useAuthStore((state) => state.setLoading);
   const [email, setEmail] = useState('');
@@ -48,6 +50,8 @@ export default function LoginScreen() {
     try {
       const response = await login(email.trim().toLowerCase(), password);
       await setTokens(response.tokens.accessToken, response.tokens.refreshToken);
+      queryClient.clear();
+      queryClient.setQueryData(['me'], response.user);
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {

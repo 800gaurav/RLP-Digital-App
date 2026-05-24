@@ -1,10 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 import { Video, ResizeMode } from 'expo-av';
-import { getTrainingVideos } from '../../services/videos.service';
+import { getTrainingVideo } from '../../services/videos.service';
 import AppBottomNav from '../../components/navigation/AppBottomNav';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
@@ -15,12 +16,43 @@ function isYouTubeUrl(url = '') {
 
 export default function TrainingVideoDetailScreen() {
   const { id } = useLocalSearchParams();
+  const videoId = Array.isArray(id) ? id[0] : id;
   const videoRef = useRef(null);
   const openingFullscreenRef = useRef(false);
   const fullscreenOpenedRef = useRef(false);
   const resettingFinishedVideoRef = useRef(false);
-  const { data: videos = [] } = useQuery({ queryKey: ['training-videos'], queryFn: getTrainingVideos });
-  const video = videos.find((v) => v.id === id);
+  const { data: video = null } = useQuery({
+    queryKey: ['training-video', videoId],
+    queryFn: () => getTrainingVideo(videoId),
+    enabled: Boolean(videoId),
+  });
+
+  useFocusEffect(
+    React.useCallback(() => () => {
+      if (!videoRef.current) return;
+      videoRef.current.pauseAsync().catch(() => {});
+      videoRef.current.stopAsync().catch(() => {});
+      videoRef.current.unloadAsync().catch(() => {});
+    }, []),
+  );
+
+  useEffect(() => {
+    return () => {
+      if (!videoRef.current) return;
+      videoRef.current.pauseAsync().catch(() => {});
+      videoRef.current.stopAsync().catch(() => {});
+      videoRef.current.unloadAsync().catch(() => {});
+    };
+  }, []);
+
+  const handleBack = () => {
+    if (videoRef.current) {
+      videoRef.current.pauseAsync().catch(() => {});
+      videoRef.current.stopAsync().catch(() => {});
+      videoRef.current.unloadAsync().catch(() => {});
+    }
+    router.back();
+  };
 
   const handleOpenYouTube = async () => {
     if (!video) return;
@@ -35,7 +67,7 @@ export default function TrainingVideoDetailScreen() {
 
   const Header = ({ title }) => (
     <View style={styles.header}>
-      <Pressable style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back">
+      <Pressable style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]} onPress={handleBack} accessibilityRole="button" accessibilityLabel="Go back">
         <Text style={styles.backIcon}>{'<'}</Text>
       </Pressable>
       <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>

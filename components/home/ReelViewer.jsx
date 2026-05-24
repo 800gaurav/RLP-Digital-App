@@ -52,15 +52,17 @@ export default function ReelViewer({
   };
 
   if (!reel) return null;
+  const videoUri = getVideoUri(reel);
+  const imageUri = getImageUri(reel);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.overlay}>
-        {reel.mediaType === 'video' ? (
+        {reel.mediaType === 'video' && videoUri ? (
           <View style={styles.mediaContainer}>
             <Video
               ref={videoRef}
-              source={{ uri: getVideoUri(reel) }}
+              source={{ uri: videoUri }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay
@@ -78,11 +80,11 @@ export default function ReelViewer({
           </View>
         ) : (
           <View style={styles.mediaContainer}>
-            {getImageUri(reel) ? (
-              <Image source={{ uri: getImageUri(reel) }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" accessibilityLabel={reel.caption} />
             ) : (
               <View style={styles.imageFallback}>
-                <Text style={styles.imageFallbackText}>Media unavailable</Text>
+                <Text style={styles.imageFallbackText}>{reel.mediaType === 'video' ? 'Video unavailable' : 'Media unavailable'}</Text>
               </View>
             )}
           </View>

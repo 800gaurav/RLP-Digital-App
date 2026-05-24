@@ -3,13 +3,15 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Image, Platform, Alert,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 import { register } from '../../services/auth.service';
-import { setTokens } from '../../services/api';
+import apiClient, { getApiErrorMessage, logApiError, setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 
 const INDIAN_STATES = [
@@ -23,7 +25,32 @@ const INDIAN_STATES = [
 ];
 
 function isValidEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()); }
-function isValidDate(date) { return /^\d{2}\/\d{2}\/\d{4}$/.test(date); }
+function formatDate(date) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear());
+  return `${day}/${month}/${year}`;
+}
+
+function parseDateString(value) {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) return null;
+  const [dayText, monthText, yearText] = value.split('/');
+  const day = Number(dayText);
+  const month = Number(monthText);
+  const year = Number(yearText);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(parsed.getTime())
+    || parsed.getDate() !== day
+    || parsed.getMonth() !== month - 1
+    || parsed.getFullYear() !== year
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+function isValidDate(date) { return Boolean(parseDateString(date)); }
 
 function FieldLabel({ label, required }) {
   return (
@@ -93,8 +120,11 @@ function StatePicker({ value, onSelect, error }) {
 }
 
 export default function RegisterScreen() {
+  const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
   const setLoading = useAuthStore((state) => state.setLoading);
+  const defaultDob = new Date(2000, 0, 1);
+  const maxDob = new Date();
 
   const [form, setForm] = useState({
     fullName: '', dob: '', gender: '', voterId: '', address: '',
@@ -105,10 +135,19 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDobPicker, setShowDobPicker] = useState(false);
+
+  const selectedDob = parseDateString(form.dob) || defaultDob;
 
   function updateField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  function handleDobChange(_event, selectedDate) {
+    if (Platform.OS === 'android') setShowDobPicker(false);
+    if (!selectedDate) return;
+    updateField('dob', formatDate(selectedDate));
   }
 
   async function pickPhoto() {
@@ -157,10 +196,21 @@ export default function RegisterScreen() {
         pincode: form.pincode.trim(), profilePhoto: form.profilePhoto || undefined,
       });
       await setTokens(response.tokens.accessToken, response.tokens.refreshToken);
+      queryClient.clear();
+      queryClient.setQueryData(['me'], response.user);
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
-      const message = error?.response?.data?.message ?? 'Registration failed. Please try again.';
+      logApiError(error, 'Register request failed');
+      console.error('Register flow error', {
+        apiBaseUrl: apiClient.defaults.baseURL,
+        responseData: error?.response?.data,
+        message: error?.message,
+      });
+      const isNetworkError = !error?.response;
+      const message = isNetworkError
+        ? `Server se connection nahi ho pa raha. API URL: ${apiClient.defaults.baseURL || 'not resolved'}`
+        : getApiErrorMessage(error, 'Registration failed. Please try again.');
       Alert.alert('Registration Failed', message);
     } finally {
       setIsSubmitting(false);
@@ -201,7 +251,36 @@ export default function RegisterScreen() {
 
           <View style={styles.fieldGroup}>
             <FieldLabel label="Date of Birth" required />
-            <StyledInput value={form.dob} onChangeText={(v) => updateField('dob', v)} placeholder="DD/MM/YYYY"  error={errors.dob} />
+            <TouchableOpacity
+              style={[styles.inputWrapper, errors.dob ? styles.inputError : null]}
+              onPress={() => setShowDobPicker((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.textInput, !form.dob ? styles.placeholderText : null]}>
+                {form.dob || 'Select date of birth'}
+              </Text>
+              <Ionicons name="calendar-outline" size={20} color={Colors.outline} />
+            </TouchableOpacity>
+            {showDobPicker ? (
+              <View style={styles.datePickerCard}>
+                <DateTimePicker
+                  value={selectedDob}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={maxDob}
+                  onChange={handleDobChange}
+                />
+                {Platform.OS === 'ios' ? (
+                  <TouchableOpacity
+                    style={styles.datePickerDoneButton}
+                    onPress={() => setShowDobPicker(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.datePickerDoneText}>Done</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
             <FieldError message={errors.dob} />
           </View>
 
@@ -322,9 +401,28 @@ const styles = StyleSheet.create({
   inputError: { borderColor: Colors.error },
   inputMultiline: { alignItems: 'flex-start', paddingVertical: 10 },
   textInput: { flex: 1, fontFamily: FontFamily.regular, fontSize: 15, color: Colors.onSurface, padding: 0 },
+  placeholderText: { color: Colors.outline },
   textInputMultiline: { minHeight: 72, textAlignVertical: 'top' },
   errorText: { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.error, marginTop: 4 },
   eyeIcon: { fontSize: 16, marginLeft: 8 },
+  datePickerCard: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: Colors.outlineVariant,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceContainerLow,
+    padding: 8,
+  },
+  datePickerDoneButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  datePickerDoneText: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    color: Colors.rlpGreen,
+  },
   radioRow: { flexDirection: 'row', gap: 12 },
   radioButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors.outlineVariant, backgroundColor: Colors.surfaceContainerLow, gap: 6 },
   radioButtonSelected: { borderColor: Colors.rlpGreen, backgroundColor: Colors.secondaryContainer },

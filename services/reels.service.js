@@ -1,10 +1,9 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
 import { apiClient } from './api';
 import { demoReels } from './mockData';
 import { normalizeMediaItem, resolveMediaUrl } from './media';
 import { createUploadFile, uploadForm } from './upload';
+import { saveImageToGallery, saveVideoToGallery } from '../src/utils/mediaSave';
 
 export async function getReels() {
   try {
@@ -99,25 +98,11 @@ export async function downloadReel(reel) {
   const downloadResult = await FileSystem.downloadAsync(mediaUrl, localUri);
   if (downloadResult.status !== 200) throw new Error(`Download failed: ${downloadResult.status}`);
 
-  try {
-    const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo', 'video']);
-    if (status !== 'granted') throw new Error('Media library permission not granted');
-    const asset = await MediaLibrary.createAssetAsync(downloadResult.uri);
-    const albumName = 'RLP Digital Connect';
-    const album = await MediaLibrary.getAlbumAsync(albumName);
-    if (album) {
-      await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-    } else {
-      await MediaLibrary.createAlbumAsync(albumName, asset, false);
-    }
-    return { savedTo: 'gallery' };
-  } catch (galleryError) {
-    const canShare = await Sharing.isAvailableAsync();
-    if (!canShare) throw galleryError;
-    await Sharing.shareAsync(downloadResult.uri, {
-      mimeType: reel.mediaType === 'video' ? 'video/mp4' : 'image/webp',
-      dialogTitle: 'Save Status',
-    });
-    return { savedTo: 'share' };
+  if (reel.mediaType === 'video') {
+    await saveVideoToGallery(downloadResult.uri, { fileName: filename });
+  } else {
+    await saveImageToGallery(downloadResult.uri, { fileName: filename });
   }
+
+  return { savedTo: 'gallery' };
 }

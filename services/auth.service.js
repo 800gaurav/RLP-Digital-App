@@ -2,6 +2,14 @@ import apiClient from './api';
 import { normalizeUserMedia } from './media';
 
 export async function register(data) {
+  if (!data.profilePhoto) {
+    const payload = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined && value !== ''),
+    );
+    const response = await apiClient.post('/auth/register', payload);
+    return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
+  }
+
   const formData = new FormData();
   Object.keys(data).forEach((key) => {
     if (key === 'profilePhoto') return;

@@ -46,13 +46,21 @@ export function normalizeUserMedia(user) {
 
 export function normalizeMediaItem(item) {
   if (!item) return item;
+  const thumbnailUrl = resolveMediaUrl(item.thumbnailUrl);
+  const videoUrl = resolveMediaUrl(item.videoUrl);
+  const imageUrl = resolveMediaUrl(item.imageUrl);
+  const rawMediaUrl = resolveMediaUrl(item.mediaUrl);
+  const mediaUrl = item.mediaType === 'video'
+    ? (videoUrl || rawMediaUrl || thumbnailUrl)
+    : (imageUrl || rawMediaUrl || thumbnailUrl);
+
   return {
     ...item,
     profilePhoto: resolveMediaUrl(item.profilePhoto),
     photoUrl: resolveMediaUrl(item.photoUrl),
-    mediaUrl: resolveMediaUrl(item.mediaUrl),
-    thumbnailUrl: resolveMediaUrl(item.thumbnailUrl),
-    videoUrl: resolveMediaUrl(item.videoUrl),
-    imageUrl: resolveMediaUrl(item.imageUrl),
+    mediaUrl,
+    thumbnailUrl,
+    videoUrl,
+    imageUrl,
   };
 }

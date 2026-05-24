@@ -48,7 +48,12 @@ export async function getRefreshToken() {
 }
 
 export function getApiErrorMessage(error, fallbackMessage = 'Something went wrong') {
-  const message = error?.response?.data?.message || error?.message;
+  const message =
+    error?.response?.data?.message
+    || error?.response?.data?.error
+    || error?.response?.data?.details?.[0]?.message
+    || error?.response?.data?.errors?.[0]?.message
+    || error?.message;
   return message || fallbackMessage;
 }
 

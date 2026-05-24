@@ -12,12 +12,14 @@ import {
   View,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
+import { isPermissionDeniedError } from '../../src/services/PermissionManager';
+import { savePosterToGallery } from '../../src/utils/mediaSave';
 import {
   buildDefaultPosterCustomization,
   loadPosterCustomization,
@@ -35,6 +37,13 @@ const FALLBACK_RIBBON_CONTENT = {
   name: 'RLP party name',
   mobile: '987654320',
 };
+
+const THEME_OPTIONS = [
+  { id: 'classic-red', label: 'Classic Red', ribbonBackground: '#B71C1C', primaryText: '#FFFFFF', secondaryText: 'rgba(255,255,255,0.96)' },
+  { id: 'saffron-gold', label: 'Saffron Gold', ribbonBackground: '#F4B400', primaryText: '#3B2200', secondaryText: 'rgba(59,34,0,0.86)' },
+  { id: 'campaign-green', label: 'Campaign Green', ribbonBackground: '#1F7A3D', primaryText: '#FFFFFF', secondaryText: 'rgba(255,255,255,0.94)' },
+  { id: 'royal-navy', label: 'Royal Navy', ribbonBackground: '#17335C', primaryText: '#F8FAFC', secondaryText: 'rgba(248,250,252,0.88)' },
+];
 
 const FIELD_CONFIG = [
   { key: 'name', label: 'Name', placeholder: 'Enter full name', required: true, keyboardType: 'default' },
@@ -134,7 +143,51 @@ function buildLocationLine(address, district, hasRightDetails) {
   return `${baseLine.slice(0, LOCATION_LINE_MAX_LENGTH_WITH_CONTACT).trimEnd()}...`;
 }
 
-function PosterRibbon({ customization, user, compact }) {
+function ThemePicker({ visible, selectedThemeId, onSelect, onClose }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.sheetCard}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Choose Theme</Text>
+          <Text style={styles.sheetSubtitle}>Ribbon ke color aur text contrast yahan se change karein.</Text>
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.themeList}
+            showsVerticalScrollIndicator={false}
+          >
+            {THEME_OPTIONS.map((theme) => {
+              const active = theme.id === selectedThemeId;
+              return (
+                <Pressable
+                  key={theme.id}
+                  style={[styles.themeCard, active && styles.themeCardActive]}
+                  onPress={() => {
+                    onSelect(theme.id);
+                    onClose();
+                  }}
+                >
+                  <View style={[styles.themePreview, { backgroundColor: theme.ribbonBackground }]}>
+                    <Text style={[styles.themePreviewTitle, { color: theme.primaryText }]}>RLP Digital</Text>
+                    <Text style={[styles.themePreviewMeta, { color: theme.secondaryText }]}>Name | Mobile | Handle</Text>
+                  </View>
+                  <View style={styles.themeContent}>
+                    <Text style={styles.themeLabel}>{theme.label}</Text>
+                    <Text style={styles.themeHint}>Ribbon background and text auto-adjust</Text>
+                  </View>
+                  {active ? <Ionicons name="checkmark-circle" size={22} color={Colors.rlpGreen} /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function PosterRibbon({ customization, user, compact, theme }) {
   const name = customization.name.trim() || FALLBACK_RIBBON_CONTENT.name;
   const district = customization.district.trim() || user?.district?.trim?.() || user?.city?.trim?.() || '';
   const address = customization.address.trim();
@@ -144,15 +197,28 @@ function PosterRibbon({ customization, user, compact }) {
   const locationLine = buildLocationLine(address, district, hasRightDetails);
 
   return (
-    <View style={[styles.ribbon, compact && styles.ribbonCompact]}>
+    <View style={[styles.ribbon, compact && styles.ribbonCompact, { backgroundColor: theme.ribbonBackground }]}>
       <View style={[styles.ribbonGrid, !hasRightDetails && styles.ribbonGridCentered]}>
         <View style={[styles.ribbonColumnLeft, !hasRightDetails && styles.ribbonColumnCentered]}>
-          <Text style={[styles.ribbonName, compact && styles.ribbonNameCompact, !hasRightDetails && styles.ribbonTextCentered]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.ribbonName,
+              compact && styles.ribbonNameCompact,
+              !hasRightDetails && styles.ribbonTextCentered,
+              { color: theme.primaryText },
+            ]}
+            numberOfLines={1}
+          >
             {name}
           </Text>
           {locationLine ? (
             <Text
-              style={[styles.ribbonMeta, compact && styles.ribbonMetaCompact, !hasRightDetails && styles.ribbonTextCentered]}
+              style={[
+                styles.ribbonMeta,
+                compact && styles.ribbonMetaCompact,
+                !hasRightDetails && styles.ribbonTextCentered,
+                { color: theme.secondaryText },
+              ]}
               numberOfLines={1}
             >
               {locationLine}
@@ -161,12 +227,20 @@ function PosterRibbon({ customization, user, compact }) {
         </View>
         <View style={[styles.ribbonColumnRight, !hasRightDetails && styles.ribbonColumnHidden]}>
           {mobile ? (
-            <Text style={[styles.ribbonValue, compact && styles.ribbonValueCompact]} numberOfLines={1}>
+            <Text style={[styles.ribbonValue, compact && styles.ribbonValueCompact, { color: theme.primaryText }]} numberOfLines={1}>
               {mobile}
             </Text>
           ) : null}
           {social ? (
-            <Text style={[styles.ribbonMeta, styles.ribbonMetaRight, compact && styles.ribbonMetaCompact]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.ribbonMeta,
+                styles.ribbonMetaRight,
+                compact && styles.ribbonMetaCompact,
+                { color: theme.secondaryText },
+              ]}
+              numberOfLines={1}
+            >
               {social}
             </Text>
           ) : null}
@@ -181,6 +255,7 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
   const { width: windowWidth } = useWindowDimensions();
   const [customization, setCustomization] = useState(() => buildDefaultPosterCustomization(user));
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [themePickerVisible, setThemePickerVisible] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
   const [imageAspectRatio, setImageAspectRatio] = useState(CAPTURE_WIDTH / CAPTURE_POSTER_HEIGHT);
@@ -189,7 +264,7 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
     let active = true;
     const defaults = buildDefaultPosterCustomization(user);
     setIsReady(false);
-    loadPosterCustomization(template.id, defaults)
+    loadPosterCustomization(template.id, user, defaults)
       .then((saved) => {
         if (!active) return;
         setCustomization(normalizePosterCustomization(saved, defaults));
@@ -208,8 +283,8 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
 
   useEffect(() => {
     if (!isReady) return;
-    savePosterCustomization(template.id, customization).catch(() => {});
-  }, [customization, isReady, template.id]);
+    savePosterCustomization(template.id, user, customization).catch(() => {});
+  }, [customization, isReady, template.id, user]);
 
   useEffect(() => {
     let active = true;
@@ -271,20 +346,16 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
     try {
       const uri = await capturePoster('download');
       if (!uri) return;
-
-      const permission = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
-      if (permission.status !== 'granted') {
-        throw new Error('Gallery permission not granted');
-      }
-
-      const asset = await MediaLibrary.createAssetAsync(uri);
-      const albumName = 'RLP Posters';
-      const album = await MediaLibrary.getAlbumAsync(albumName);
-      if (album) await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
-      else await MediaLibrary.createAlbumAsync(albumName, asset, false);
+      await savePosterToGallery(uri, {
+        fileName: `${(template.name || 'rlp-poster').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${Date.now()}.png`,
+      });
 
       Alert.alert('Downloaded', 'Customized poster gallery me save ho gaya.');
     } catch (error) {
+      if (isPermissionDeniedError(error)) {
+        router.push('/permissions/recovery');
+        return;
+      }
       Alert.alert('Download failed', error?.message || 'Poster download nahi ho paya.');
     } finally {
       setActionLoading('');
@@ -319,6 +390,7 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
 
   const previewWidth = Math.min(windowWidth - 40, POSTER_PREVIEW_MAX_WIDTH);
   const compactRibbon = previewWidth < 332;
+  const selectedTheme = THEME_OPTIONS.find((theme) => theme.id === customization.themeId) || THEME_OPTIONS[0];
 
   return (
     <View style={styles.container}>
@@ -333,7 +405,7 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
             style={[styles.posterImage, { aspectRatio: imageAspectRatio }]}
             resizeMode="cover"
           />
-          <PosterRibbon customization={customization} user={user} compact={compactRibbon} />
+          <PosterRibbon customization={customization} user={user} compact={compactRibbon} theme={selectedTheme} />
         </View>
       </ViewShot>
 
@@ -346,7 +418,7 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.82 }]} onPress={onClose}>
+        <Pressable style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.82 }]} onPress={() => setThemePickerVisible(true)}>
           <Text style={styles.secondaryText}>Choose Theme</Text>
         </Pressable>
         <Pressable style={({ pressed }) => [styles.customizeBtn, pressed && { opacity: 0.86 }]} onPress={() => setSheetVisible(true)}>
@@ -372,6 +444,13 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
       </View>
 
       {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
+
+      <ThemePicker
+        visible={themePickerVisible}
+        selectedThemeId={selectedTheme.id}
+        onSelect={(themeId) => handleChange('themeId', themeId)}
+        onClose={() => setThemePickerVisible(false)}
+      />
 
       <Modal visible={sheetVisible} transparent animationType="slide" onRequestClose={() => setSheetVisible(false)}>
         <View style={styles.sheetOverlay}>
@@ -519,6 +598,49 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: 12,
     lineHeight: 18,
+    color: Colors.onSurfaceVariant,
+  },
+  themeList: { paddingBottom: 8, gap: 10 },
+  themeCard: {
+    borderWidth: 1,
+    borderColor: Colors.outlineVariant,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.white,
+  },
+  themeCardActive: {
+    borderColor: Colors.rlpGreen,
+    backgroundColor: Colors.primaryContainer,
+  },
+  themePreview: {
+    width: 88,
+    height: 54,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    justifyContent: 'space-between',
+  },
+  themePreviewTitle: {
+    fontFamily: FontFamily.bold,
+    fontSize: 11,
+  },
+  themePreviewMeta: {
+    fontFamily: FontFamily.medium,
+    fontSize: 8,
+  },
+  themeContent: { flex: 1 },
+  themeLabel: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: 14,
+    color: Colors.onSurface,
+    marginBottom: 2,
+  },
+  themeHint: {
+    fontFamily: FontFamily.regular,
+    fontSize: 11,
     color: Colors.onSurfaceVariant,
   },
   actions: { width: '100%', maxWidth: POSTER_PREVIEW_MAX_WIDTH, flexDirection: 'row', gap: 12, marginTop: 18 },

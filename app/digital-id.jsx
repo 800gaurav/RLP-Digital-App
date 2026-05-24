@@ -2,10 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import ViewShot from 'react-native-view-shot';
@@ -15,8 +13,8 @@ import IDCard from '../components/digital-id/IDCard';
 import AppBottomNav from '../components/navigation/AppBottomNav';
 import { Colors } from '../constants/colors';
 import { FontFamily } from '../constants/typography';
-
-const ID_CARD_DOWNLOAD_FOLDER_KEY = 'rlp-id-card-download-folder';
+import { isPermissionDeniedError } from '../src/services/PermissionManager';
+import { saveImageToGallery } from '../src/utils/mediaSave';
 
 export default function DigitalIdScreen() {
   const { action } = useLocalSearchParams();
@@ -51,36 +49,6 @@ export default function DigitalIdScreen() {
     return targetUri;
   }
 
-  async function saveToAndroidFolder(uri, filename) {
-    let directoryUri = await AsyncStorage.getItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
-
-    if (!directoryUri) {
-      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
-      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
-      if (!permission.granted) return false;
-      directoryUri = permission.directoryUri;
-      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, directoryUri);
-    }
-
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, filename, 'image/png');
-      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      return true;
-    } catch (error) {
-      await AsyncStorage.removeItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
-      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
-      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
-      if (!permission.granted) throw error;
-      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, permission.directoryUri);
-
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri, filename, 'image/png');
-      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      return true;
-    }
-  }
-
   async function downloadCard() {
     setWorking('download');
     try {
@@ -95,46 +63,14 @@ export default function DigitalIdScreen() {
         return;
       }
 
-      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
-        const saved = await saveToAndroidFolder(uri, filename);
-        if (saved) {
-          Alert.alert('Downloaded', 'ID card image saved to the selected folder.');
-          return;
-        }
-      }
-
-      try {
-        const mediaLibraryAvailable = await MediaLibrary.isAvailableAsync();
-        if (mediaLibraryAvailable && typeof MediaLibrary.requestPermissionsAsync === 'function') {
-          const permission = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
-          if (permission.status === 'granted') {
-            if (typeof MediaLibrary.saveToLibraryAsync === 'function') {
-              await MediaLibrary.saveToLibraryAsync(uri);
-            } else {
-              await MediaLibrary.createAssetAsync(uri);
-            }
-            Alert.alert('Downloaded', 'ID card image saved to gallery.');
-            return;
-          }
-        }
-      } catch (permissionError) {
-        console.warn('Gallery save unavailable, falling back to share sheet', permissionError);
-      }
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        Alert.alert('Download', 'Direct gallery save is unavailable in Expo Go. Share sheet open kar rahe hain, wahan se Save/Download kar sakte hain.');
-        await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Save Digital ID Card',
-          UTI: 'public.png',
-        });
-        return;
-      }
-
-      Alert.alert('Saved Locally', `Gallery save unavailable. Card saved at:\n${uri}`);
+      await saveImageToGallery(uri, { fileName: `${filename}.png` });
+      Alert.alert('Downloaded', 'ID card image saved to gallery.');
     } catch (error) {
       console.error('ID card download failed', error);
+      if (isPermissionDeniedError(error)) {
+        router.push('/permissions/recovery');
+        return;
+      }
       Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');
     } finally {
       setWorking('');

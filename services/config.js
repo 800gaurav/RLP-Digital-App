@@ -26,7 +26,7 @@ function getDefaultApiUrl() {
     return MANUAL_LAN_API_URL;
   }
 
-  return lanUrl || (Platform.OS === 'android' ? MANUAL_LAN_API_URL : WEB_API_URL);
+  return lanUrl || MANUAL_LAN_API_URL;
 }
 
 function getApiBaseUrl() {
@@ -35,7 +35,7 @@ function getApiBaseUrl() {
 
   if (envUrl) {
     if (Platform.OS !== 'web' && isLocalhost) {
-      return Platform.OS === 'android' ? EMULATOR_API_URL : WEB_API_URL;
+      return Platform.OS === 'android' ? EMULATOR_API_URL : MANUAL_LAN_API_URL;
     }
     return envUrl;
   }

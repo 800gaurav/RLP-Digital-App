@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { getAccessToken } from '../../services/api';
+import { checkPermissions } from '../../src/services/PermissionManager';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,6 +48,16 @@ export default function SplashScreen() {
 
     const timer = setTimeout(async () => {
       try {
+        const permissionSnapshot = await checkPermissions();
+        if (permissionSnapshot.status === 'needs_onboarding') {
+          router.replace('/permissions');
+          return;
+        }
+        if (permissionSnapshot.status === 'denied') {
+          router.replace('/permissions/recovery');
+          return;
+        }
+
         const token = await getAccessToken();
         if (token) router.replace('/(tabs)');
         else router.replace('/(auth)/login');

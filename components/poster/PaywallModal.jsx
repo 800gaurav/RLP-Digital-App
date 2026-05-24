@@ -6,7 +6,8 @@ import { FontFamily } from '../../constants/typography';
 const BENEFITS = [
   '500+ Premium Templates',
   'No Watermark & HD Export',
-  'Personal Photo Customization',
+  'Personal Details Customization',
+  'Choose Your Own Theme',
 ];
 
 export default function PaywallModal({ visible, price, monthlyLimit, onSubscribe, onClose }) {
@@ -26,7 +27,7 @@ export default function PaywallModal({ visible, price, monthlyLimit, onSubscribe
           </View>
 
           <Text style={styles.title}>Unlock Poster Maker</Text>
-          <Text style={styles.description}>Create stunning personalized RLP posters, festive greetings, and rally banners with ease.</Text>
+          <Text style={styles.description}>Create stunning RLP posters, festive greetings, and rally banners with your own details and style.</Text>
 
           {/* Price box matching Figma */}
           <View style={styles.priceBox}>

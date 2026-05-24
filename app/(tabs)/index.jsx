@@ -1,15 +1,12 @@
 import React, { useRef, useState } from 'react';
 import {
-  Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Image,
+  Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
 import ViewShot from 'react-native-view-shot';
 
 import { useAuthStore } from '../../store/auth.store';
@@ -27,8 +24,8 @@ import IDCard from '../../components/digital-id/IDCard';
 
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
-
-const ID_CARD_DOWNLOAD_FOLDER_KEY = 'rlp-id-card-download-folder';
+import { isPermissionDeniedError } from '../../src/services/PermissionManager';
+import { saveImageToGallery } from '../../src/utils/mediaSave';
 
 export default function HomeScreen() {
   const { user: storeUser, setUser } = useAuthStore();
@@ -75,13 +72,13 @@ export default function HomeScreen() {
 
   const handleDownload = async (reel) => {
     try {
-      const result = await downloadReel(reel);
-      if (result?.savedTo === 'share') {
-        Alert.alert('Save Status', 'Expo Go me direct gallery save restricted hai. Share sheet se Save/Download choose kar sakte hain.');
-        return;
-      }
+      await downloadReel(reel);
       Alert.alert('Downloaded', 'Status gallery me save ho gaya.');
     } catch (error) {
+      if (isPermissionDeniedError(error)) {
+        router.push('/permissions/recovery');
+        return;
+      }
       Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
     }
   };
@@ -122,88 +119,25 @@ export default function HomeScreen() {
     return targetUri;
   };
 
-  const saveToAndroidFolder = async (uri, filename) => {
-    let directoryUri = await AsyncStorage.getItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
-
-    if (!directoryUri) {
-      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
-      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
-      if (!permission.granted) return false;
-      directoryUri = permission.directoryUri;
-      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, directoryUri);
-    }
-
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryUri, filename, 'image/png');
-      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      return true;
-    } catch (error) {
-      await AsyncStorage.removeItem(ID_CARD_DOWNLOAD_FOLDER_KEY);
-      const initialUri = FileSystem.StorageAccessFramework.getUriForDirectoryInRoot('Download');
-      const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
-      if (!permission.granted) throw error;
-      await AsyncStorage.setItem(ID_CARD_DOWNLOAD_FOLDER_KEY, permission.directoryUri);
-
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri, filename, 'image/png');
-      await FileSystem.StorageAccessFramework.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      return true;
-    }
-  };
-
   const handleIdCardDownload = async () => {
     try {
       const uri = await persistIdCard();
-      const filename = `RLP-ID-${user.voterId || user.id}-${Date.now()}`;
-
-      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
-        const saved = await saveToAndroidFolder(uri, filename);
-        if (saved) {
-          Alert.alert('Downloaded', 'ID card image saved to the selected folder.');
-          return;
-        }
-      }
-
-      try {
-        const mediaLibraryAvailable = await MediaLibrary.isAvailableAsync();
-        if (mediaLibraryAvailable && typeof MediaLibrary.requestPermissionsAsync === 'function') {
-          const permission = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
-          if (permission.status === 'granted') {
-            if (typeof MediaLibrary.saveToLibraryAsync === 'function') await MediaLibrary.saveToLibraryAsync(uri);
-            else await MediaLibrary.createAssetAsync(uri);
-            Alert.alert('Downloaded', 'ID card image saved to gallery.');
-            return;
-          }
-        }
-      } catch (_permissionError) {}
-
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Save Digital ID Card', UTI: 'public.png' });
-        return;
-      }
-
-      Alert.alert('Saved Locally', `Card saved at:\n${uri}`);
+      await saveImageToGallery(uri, {
+        fileName: `RLP-ID-${user.voterId || user.id}-${Date.now()}.png`,
+      });
+      Alert.alert('Downloaded', 'ID card image saved to gallery.');
     } catch (error) {
       console.error('Home ID card download failed', error);
+      if (isPermissionDeniedError(error)) {
+        router.push('/permissions/recovery');
+        return;
+      }
       Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');
     }
   };
 
   const handleIdCardShare = async () => {
-    try {
-      const uri = await persistIdCard();
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert('Sharing unavailable', `ID card generated at ${uri}`);
-        return;
-      }
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share Digital ID Card', UTI: 'public.png' });
-    } catch (error) {
-      console.error('Home ID card share failed', error);
-      Alert.alert('Share failed', error?.message || 'Could not generate the ID card image.');
-    }
+    openDigitalId('share');
   };
 
   const openStampPad = () => {
@@ -282,7 +216,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Pressable
             style={({ pressed }) => [styles.stampPadCta, pressed && { opacity: 0.88 }]}
             onPress={openStampPad}
@@ -301,7 +235,7 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.white} />
             </View>
           </Pressable>
-        </View>
+        </View> */}
 
         {officials.length > 0 && (
           <View style={styles.section}>

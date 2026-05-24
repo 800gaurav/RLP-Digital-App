@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { getReelsPage, downloadReel } from '../../services/reels.service';
 import ReelViewer from '../../components/home/ReelViewer';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
+import { isPermissionDeniedError } from '../../src/services/PermissionManager';
 
 const PAGE_SIZE = 10;
 
@@ -80,13 +82,13 @@ export default function StatusScreen() {
 
   const handleDownload = async (reel) => {
     try {
-      const result = await downloadReel(reel);
-      if (result?.savedTo === 'share') {
-        Alert.alert('Save Status', 'Expo Go me direct gallery save restricted hai. Share sheet se Save/Download choose kar sakte hain.');
-        return;
-      }
+      await downloadReel(reel);
       Alert.alert('Downloaded', 'Status gallery me save ho gaya.');
     } catch (error) {
+      if (isPermissionDeniedError(error)) {
+        router.push('/permissions/recovery');
+        return;
+      }
       Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
     }
   };

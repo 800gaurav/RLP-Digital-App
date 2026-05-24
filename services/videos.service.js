@@ -14,6 +14,18 @@ export async function getTrainingVideos() {
   }
 }
 
+export async function getTrainingVideo(id) {
+  try {
+    const response = await apiClient.get(`/training-videos/${id}`);
+    return normalizeMediaItem(response.data.data);
+  } catch (error) {
+    if (!error.response) {
+      return normalizeMediaItem(demoTrainingVideos.find((item) => item.id === id) || null);
+    }
+    throw error;
+  }
+}
+
 export async function getTrainingVideosPage({ page = 1, limit = 10 } = {}) {
   try {
     const response = await apiClient.get('/training-videos', { params: { page, limit } });
