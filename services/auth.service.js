@@ -1,5 +1,6 @@
 import apiClient from './api';
 import { normalizeUserMedia } from './media';
+import { createUploadFile, uploadForm } from './upload';
 
 export async function register(data) {
   if (!data.profilePhoto) {
@@ -16,15 +17,13 @@ export async function register(data) {
     if (data[key] !== undefined) formData.append(key, String(data[key]));
   });
   if (data.profilePhoto) {
-    const filename = data.profilePhoto.split('/').pop() || 'photo.jpg';
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-    formData.append('profilePhoto', { uri: data.profilePhoto, name: filename, type });
+    formData.append('profilePhoto', createUploadFile(data.profilePhoto, {
+      kind: 'image',
+      fallbackName: 'profile-photo.jpg',
+    }));
   }
-  const response = await apiClient.post('/auth/register', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
+  const response = await uploadForm('/auth/register', formData, { method: 'POST', timeout: 180000 });
+  return { ...response.data, user: normalizeUserMedia(response.data.user) };
 }
 
 export async function login(email, password) {

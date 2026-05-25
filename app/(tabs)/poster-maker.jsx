@@ -7,7 +7,7 @@ import { useAuthStore } from '../../store/auth.store';
 import PaywallModal from '../../components/poster/PaywallModal';
 import TemplateGrid from '../../components/poster/TemplateGrid';
 import PosterEditor from '../../components/poster/PosterEditor';
-import { getApiErrorMessage, logApiError } from '../../services/api';
+import { getFriendlyApiErrorMessage, logApiError } from '../../services/api';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 
@@ -56,7 +56,7 @@ export default function PosterMakerScreen() {
       logApiError(error, 'Poster download consume failed');
       const code = error?.response?.data?.code;
       if (code === 'SUBSCRIPTION_REQUIRED') setPaywallVisible(true);
-      else Alert.alert('Poster export blocked', getApiErrorMessage(error, 'Poster export abhi allow nahi hai.'));
+      else Alert.alert('Poster export blocked', getFriendlyApiErrorMessage(error, 'Poster export abhi allow nahi hai.'));
       return false;
     }
   };

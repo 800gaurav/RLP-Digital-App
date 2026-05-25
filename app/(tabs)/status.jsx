@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { getFriendlyErrorMessage } from '../../services/api';
 import { getReelsPage, downloadReel } from '../../services/reels.service';
 import ReelViewer from '../../components/home/ReelViewer';
 import { Colors } from '../../constants/colors';
@@ -88,7 +89,7 @@ export default function StatusScreen() {
         showPermissionSettingsAlert();
         return;
       }
-      Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
+      Alert.alert('Download failed', getFriendlyErrorMessage(error, 'Status download nahi ho paya.'));
     }
   };
 

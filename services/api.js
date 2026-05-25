@@ -80,6 +80,36 @@ export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat 
   return message || fallbackMessage;
 }
 
+const TECHNICAL_ERROR_PATTERNS = [
+  /call to function/i,
+  /has been rejected/i,
+  /native/i,
+  /expo/i,
+  /network error/i,
+  /network request failed/i,
+  /aborterror/i,
+  /undefined is not/i,
+  /cannot read/i,
+  /permissionmanagererror/i,
+  /download failed with status/i,
+  /upload failed with/i,
+  /internal server error/i,
+];
+
+export function getFriendlyErrorMessage(error, fallbackMessage = 'Kuch galat ho gaya. Kripya dobara koshish karein.') {
+  if (!error) return fallbackMessage;
+
+  if (error?.response) {
+    return getFriendlyApiErrorMessage(error, fallbackMessage);
+  }
+
+  const rawMessage = typeof error?.message === 'string' ? error.message.trim() : '';
+  if (!rawMessage) return fallbackMessage;
+
+  const looksTechnical = TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(rawMessage));
+  return looksTechnical ? fallbackMessage : rawMessage;
+}
+
 export function logApiError(error, context = 'API request failed') {
   const method = error?.config?.method?.toUpperCase?.() || 'UNKNOWN';
   const url = error?.config?.baseURL

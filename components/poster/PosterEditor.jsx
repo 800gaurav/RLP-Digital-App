@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
+import { getFriendlyErrorMessage } from '../../services/api';
 import { isPermissionDeniedError, showPermissionSettingsAlert } from '../../src/services/PermissionManager';
 import { savePosterToGallery } from '../../src/utils/mediaSave';
 import {
@@ -381,7 +382,7 @@ export default function PosterEditor({
         showPermissionSettingsAlert();
         return;
       }
-      Alert.alert('Download failed', error?.message || 'Poster download nahi ho paya.');
+      Alert.alert('Download failed', getFriendlyErrorMessage(error, 'Poster download nahi ho paya.'));
     } finally {
       setActionLoading('');
     }
@@ -407,7 +408,7 @@ export default function PosterEditor({
         UTI: 'public.png',
       });
     } catch (error) {
-      Alert.alert('Share failed', error?.message || 'Poster share nahi ho paya.');
+      Alert.alert('Share failed', getFriendlyErrorMessage(error, 'Poster share nahi ho paya.'));
     } finally {
       setActionLoading('');
     }

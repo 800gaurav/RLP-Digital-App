@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { getApiErrorMessage, logApiError } from '../../services/api';
+import { getFriendlyApiErrorMessage, logApiError } from '../../services/api';
 import {
   createBroadcastNotification,
   deleteNotification,
@@ -394,7 +394,7 @@ export default function AdminDashboardScreen() {
       invalidatePublicData();
     } catch (error) {
       logApiError(error, 'Admin refresh failed');
-      Alert.alert('Refresh failed', getApiErrorMessage(error, 'Admin data refresh nahi hua.'));
+      Alert.alert('Refresh failed', getFriendlyApiErrorMessage(error, 'Admin data refresh nahi hua.'));
     } finally {
       setRefreshing(false);
     }
@@ -414,7 +414,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Notification publish ho gayi.');
     } catch (error) {
       logApiError(error, 'Admin notification save failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Notification save nahi hui.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Notification save nahi hui.'));
     } finally {
       setSaving('');
     }
@@ -437,7 +437,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Padadhikari save ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin padadhikari save failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Padadhikari save nahi hua.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Padadhikari save nahi hua.'));
     } finally {
       setSaving('');
     }
@@ -456,7 +456,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Training video save ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin training save failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Training save nahi hui.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Training save nahi hui.'));
     } finally {
       setSaving('');
     }
@@ -475,7 +475,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Status save ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin status save failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Status save nahi hua.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Status save nahi hua.'));
     } finally {
       setSaving('');
     }
@@ -494,7 +494,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Template save ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin poster template save failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Template save nahi hua.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Template save nahi hua.'));
     } finally {
       setSaving('');
     }
@@ -511,7 +511,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Subscription price update ho gaya.');
     } catch (error) {
       logApiError(error, 'Admin subscription price update failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Price update nahi hua.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Price update nahi hua.'));
     } finally {
       setSaving('');
     }
@@ -528,7 +528,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Template download limit update ho gayi.');
     } catch (error) {
       logApiError(error, 'Admin poster download limit update failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Download limit update nahi hui.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Download limit update nahi hui.'));
     } finally {
       setSaving('');
     }
@@ -546,7 +546,7 @@ export default function AdminDashboardScreen() {
       Alert.alert('Done', 'Poster categories update ho gayi.');
     } catch (error) {
       logApiError(error, 'Admin poster categories update failed');
-      Alert.alert('Failed', getApiErrorMessage(error, 'Poster categories update nahi hui.'));
+      Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Poster categories update nahi hui.'));
     } finally {
       setSaving('');
     }
@@ -565,7 +565,7 @@ export default function AdminDashboardScreen() {
             Alert.alert('Done', `${label} delete ho gaya.`);
           } catch (error) {
             logApiError(error, `Admin ${label} delete failed`);
-            Alert.alert('Failed', getApiErrorMessage(error, `${label} delete nahi hua.`));
+            Alert.alert('Failed', getFriendlyApiErrorMessage(error, `${label} delete nahi hua.`));
           }
         },
       },

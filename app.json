@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "rlpdigital",
     "userInterfaceStyle": "light",
-    "icon": "./assets/rlp_splash.png",
+    "icon": "./assets/rlp_bottle_badge.png",
     "splash": {
       "image": "./assets/rlp_splash.png",
       "resizeMode": "contain",
@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/rlp_splash.png",
+        "foregroundImage": "./assets/rlp_bottle_badge.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.rlp.digital",
@@ -57,8 +57,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow RLP Digital to save media to your gallery.",
-          "savePhotosPermission": "Allow RLP Digital to save photos to your gallery.",
+          "photosPermission": "Allow RLP Digital to save photos and videos.",
+          "savePhotosPermission": "Allow RLP Digital to save this photo.",
           "isAccessMediaLocationEnabled": true
         }
       ],

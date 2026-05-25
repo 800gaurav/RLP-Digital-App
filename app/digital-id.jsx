@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import ViewShot from 'react-native-view-shot';
 import { useAuthStore } from '../store/auth.store';
+import { getFriendlyErrorMessage } from '../services/api';
 import { getMe } from '../services/user.service';
 import IDCard from '../components/digital-id/IDCard';
 import AppBottomNav from '../components/navigation/AppBottomNav';
@@ -71,7 +72,7 @@ export default function DigitalIdScreen() {
         showPermissionSettingsAlert();
         return;
       }
-      Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');
+      Alert.alert('Download failed', getFriendlyErrorMessage(error, 'ID card download nahi ho paaya.'));
     } finally {
       setWorking('');
     }
@@ -83,7 +84,7 @@ export default function DigitalIdScreen() {
       const uri = await persistCapturedCard();
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert('Sharing unavailable', `ID card generated at ${uri}`);
+        Alert.alert('Sharing unavailable', 'Is device par sharing abhi available nahi hai.');
         return;
       }
       await Sharing.shareAsync(uri, {
@@ -93,7 +94,7 @@ export default function DigitalIdScreen() {
       });
     } catch (error) {
       console.error('ID card share failed', error);
-      Alert.alert('Share failed', error?.message || 'Could not generate the ID card image.');
+      Alert.alert('Share failed', getFriendlyErrorMessage(error, 'ID card share nahi ho paaya.'));
     } finally {
       setWorking('');
     }

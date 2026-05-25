@@ -47,16 +47,13 @@ async function ensureLocalFile(sourceUri: string, fileName: string) {
 }
 
 async function saveAssetToAlbum(localUri: string, albumName: string) {
-  const asset = await MediaLibrary.createAssetAsync(localUri);
   const existingAlbum = await MediaLibrary.getAlbumAsync(albumName);
 
   if (existingAlbum) {
-    await MediaLibrary.addAssetsToAlbumAsync([asset], existingAlbum, false);
-  } else {
-    await MediaLibrary.createAlbumAsync(albumName, asset, false);
+    return MediaLibrary.createAssetAsync(localUri, existingAlbum);
   }
 
-  return asset;
+  return MediaLibrary.createAlbumAsync(albumName, undefined, false, localUri);
 }
 
 export async function downloadFileToCache(sourceUri: string, fileName: string) {

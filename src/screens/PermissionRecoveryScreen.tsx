@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { getFriendlyErrorMessage } from '../../services/api';
 import { usePermissions } from '../hooks/usePermissions';
 import { openAppSettings } from '../services/PermissionManager';
 
@@ -29,7 +30,7 @@ export default function PermissionRecoveryScreen() {
     } catch (error: any) {
       Alert.alert(
         'Unable to open settings',
-        error?.message || 'Please open device settings manually and allow media access.',
+        getFriendlyErrorMessage(error, 'Please open device settings manually and allow media access.'),
       );
     }
   };
@@ -48,7 +49,7 @@ export default function PermissionRecoveryScreen() {
         'Please enable Photos and Videos access from your device settings to continue saving content.',
       );
     } catch (error: any) {
-      Alert.alert('Check failed', error?.message || 'Could not refresh the permission status.');
+      Alert.alert('Check failed', getFriendlyErrorMessage(error, 'Permission status refresh nahi ho paaya.'));
     } finally {
       setChecking(false);
     }

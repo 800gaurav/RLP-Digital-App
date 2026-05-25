@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { getFriendlyErrorMessage } from '../../services/api';
 import { usePermissions } from '../hooks/usePermissions';
 
 const BENEFITS = [
@@ -36,7 +37,7 @@ export default function PermissionScreen() {
     } catch (error: any) {
       Alert.alert(
         'Permission request failed',
-        error?.message || 'We could not complete the permission setup. Please try again.',
+        getFriendlyErrorMessage(error, 'Permission setup complete nahi ho paaya. Kripya dobara try karein.'),
       );
     } finally {
       setSubmitting(false);

@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import ViewShot from 'react-native-view-shot';
 
 import { useAuthStore } from '../../store/auth.store';
+import { getFriendlyErrorMessage } from '../../services/api';
 import { getMe } from '../../services/user.service';
 import { downloadReel } from '../../services/reels.service';
 import { getHomeFeed } from '../../services/home.service';
@@ -79,7 +80,7 @@ export default function HomeScreen() {
         showPermissionSettingsAlert();
         return;
       }
-      Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
+      Alert.alert('Download failed', getFriendlyErrorMessage(error, 'Status download nahi ho paya.'));
     }
   };
 
@@ -132,7 +133,7 @@ export default function HomeScreen() {
         showPermissionSettingsAlert();
         return;
       }
-      Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');
+      Alert.alert('Download failed', getFriendlyErrorMessage(error, 'ID card download nahi ho paaya.'));
     }
   };
 
