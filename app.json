@@ -6,9 +6,9 @@
     "orientation": "portrait",
     "scheme": "rlpdigital",
     "userInterfaceStyle": "light",
-    "icon": "./assets/rlp_splash.jpg",
+    "icon": "./assets/rlp_splash.png",
     "splash": {
-      "image": "./assets/rlp_splash.jpg",
+      "image": "./assets/rlp_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#006E2E"
     },
@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/rlp_bottle.png",
+        "foregroundImage": "./assets/rlp_bottle_square.png",
         "backgroundColor": "#006E2E"
       },
       "package": "com.rlp.digital",
@@ -69,7 +69,8 @@
           "color": "#FFD400"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},
