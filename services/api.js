@@ -57,6 +57,29 @@ export function getApiErrorMessage(error, fallbackMessage = 'Something went wron
   return message || fallbackMessage;
 }
 
+export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat ho gaya. Kripya dobara koshish karein.') {
+  const status = error?.response?.status;
+  const message = getApiErrorMessage(error, fallbackMessage);
+
+  if (!error?.response) {
+    return 'Server se connection nahi ho pa raha. Kripya thodi der baad dobara try karein.';
+  }
+
+  if (status === 401) {
+    return 'Email ya password sahi nahi hai.';
+  }
+
+  if (status === 409) {
+    return 'Is email ya voter ID se account pehle se bana hua hai.';
+  }
+
+  if (status === 400 || status === 422) {
+    return 'Form ki details check karke dobara submit karein.';
+  }
+
+  return message || fallbackMessage;
+}
+
 export function logApiError(error, context = 'API request failed') {
   const method = error?.config?.method?.toUpperCase?.() || 'UNKNOWN';
   const url = error?.config?.baseURL

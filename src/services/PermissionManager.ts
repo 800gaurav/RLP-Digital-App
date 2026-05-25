@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as MediaLibrary from 'expo-media-library';
 
 export const PERMISSION_ONBOARDING_KEY = 'permission_onboarding_completed';
@@ -175,4 +175,20 @@ export async function openAppSettings(): Promise<void> {
 
 export function isPermissionDeniedError(error: unknown): error is PermissionManagerError {
   return error instanceof PermissionManagerError && error.code === 'PERMISSION_REQUIRED';
+}
+
+export function showPermissionSettingsAlert() {
+  Alert.alert(
+    'Permission required',
+    'Download ya save karne ke liye Photos/Media access allow karna hoga. Settings me jaakar permission on karein.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Open Settings',
+        onPress: () => {
+          openAppSettings().catch(() => {});
+        },
+      },
+    ],
+  );
 }

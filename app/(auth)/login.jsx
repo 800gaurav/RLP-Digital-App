@@ -11,7 +11,7 @@ import { Colors } from '../../constants/colors';
 import { brandLogo } from '../../constants/brandAssets';
 import { FontFamily } from '../../constants/typography';
 import { login } from '../../services/auth.service';
-import { setTokens } from '../../services/api';
+import { getFriendlyApiErrorMessage, setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function LoginScreen() {
@@ -46,8 +46,7 @@ export default function LoginScreen() {
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
-      const message = error?.response?.data?.message ?? 'Login failed. Please check your credentials.';
-      Alert.alert('Login Failed', message);
+      Alert.alert('Login Failed', getFriendlyApiErrorMessage(error, 'Login nahi ho paaya. Kripya dobara try karein.'));
     } finally {
       setIsSubmitting(false);
       setLoading(false);
@@ -62,7 +61,6 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo header */}
           <View style={styles.header}>
             <View style={styles.logoFrame}>
               <Image source={brandLogo} style={styles.logoImage} resizeMode="contain" />

@@ -1,12 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { brandSplash } from '../../constants/brandAssets';
 import { Colors } from '../../constants/colors';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../../services/api';
 import { refreshToken as refreshSession } from '../../services/auth.service';
-import { checkPermissions } from '../../src/services/PermissionManager';
+import {
+  checkPermissions,
+  requestAllPermissions,
+  showPermissionSettingsAlert,
+} from '../../src/services/PermissionManager';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,6 +32,19 @@ function BouncingDot({ delay }) {
   return <Animated.View style={[styles.dot, { transform: [{ translateY }] }]} />;
 }
 
+async function requestNotificationPermissionIfNeeded() {
+  const settings = await Notifications.getPermissionsAsync();
+  if (settings.granted || !settings.canAskAgain && settings.status !== 'undetermined') {
+    return settings;
+  }
+
+  if (settings.status === 'undetermined' || settings.canAskAgain) {
+    return Notifications.requestPermissionsAsync();
+  }
+
+  return settings;
+}
+
 export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -39,14 +57,14 @@ export default function SplashScreen() {
 
     const timer = setTimeout(async () => {
       try {
-        const permissionSnapshot = await checkPermissions();
+        await requestNotificationPermissionIfNeeded();
+
+        let permissionSnapshot = await checkPermissions();
         if (permissionSnapshot.status === 'needs_onboarding') {
-          router.replace('/permissions');
-          return;
+          permissionSnapshot = await requestAllPermissions();
         }
         if (permissionSnapshot.status === 'denied') {
-          router.replace('/permissions/recovery');
-          return;
+          showPermissionSettingsAlert();
         }
 
         const token = await getAccessToken();
@@ -118,7 +136,6 @@ const styles = StyleSheet.create({
     width: Math.min(width * 0.7, 280),
     height: Math.min(height * 0.28, 220),
     marginBottom: 24,
-    borderRadius: 999,
   },
   appName: { fontSize: 32, fontWeight: '700', color: Colors.white, marginBottom: 12, letterSpacing: -0.5 },
   tagline: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },

@@ -13,7 +13,7 @@ import IDCard from '../components/digital-id/IDCard';
 import AppBottomNav from '../components/navigation/AppBottomNav';
 import { Colors } from '../constants/colors';
 import { FontFamily } from '../constants/typography';
-import { isPermissionDeniedError } from '../src/services/PermissionManager';
+import { isPermissionDeniedError, showPermissionSettingsAlert } from '../src/services/PermissionManager';
 import { saveImageToGallery } from '../src/utils/mediaSave';
 
 export default function DigitalIdScreen() {
@@ -68,7 +68,7 @@ export default function DigitalIdScreen() {
     } catch (error) {
       console.error('ID card download failed', error);
       if (isPermissionDeniedError(error)) {
-        router.push('/permissions/recovery');
+        showPermissionSettingsAlert();
         return;
       }
       Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');

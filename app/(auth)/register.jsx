@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 import { register } from '../../services/auth.service';
-import apiClient, { getApiErrorMessage, logApiError, setTokens } from '../../services/api';
+import { getFriendlyApiErrorMessage, logApiError, setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 
 const INDIAN_STATES = [
@@ -202,16 +202,10 @@ export default function RegisterScreen() {
       router.replace('/(tabs)');
     } catch (error) {
       logApiError(error, 'Register request failed');
-      console.error('Register flow error', {
-        apiBaseUrl: apiClient.defaults.baseURL,
-        responseData: error?.response?.data,
-        message: error?.message,
-      });
-      const isNetworkError = !error?.response;
-      const message = isNetworkError
-        ? `Server se connection nahi ho pa raha. API URL: ${apiClient.defaults.baseURL || 'not resolved'}`
-        : getApiErrorMessage(error, 'Registration failed. Please try again.');
-      Alert.alert('Registration Failed', message);
+      Alert.alert(
+        'Registration Failed',
+        getFriendlyApiErrorMessage(error, 'Registration complete nahi ho paaya. Kripya dobara try karein.'),
+      );
     } finally {
       setIsSubmitting(false);
       setLoading(false);

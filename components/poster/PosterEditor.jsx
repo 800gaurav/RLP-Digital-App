@@ -13,12 +13,11 @@ import {
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
-import { isPermissionDeniedError } from '../../src/services/PermissionManager';
+import { isPermissionDeniedError, showPermissionSettingsAlert } from '../../src/services/PermissionManager';
 import { savePosterToGallery } from '../../src/utils/mediaSave';
 import {
   buildDefaultPosterCustomization,
@@ -379,7 +378,7 @@ export default function PosterEditor({
       Alert.alert('Downloaded', 'Customized poster gallery me save ho gaya.');
     } catch (error) {
       if (isPermissionDeniedError(error)) {
-        router.push('/permissions/recovery');
+        showPermissionSettingsAlert();
         return;
       }
       Alert.alert('Download failed', error?.message || 'Poster download nahi ho paya.');

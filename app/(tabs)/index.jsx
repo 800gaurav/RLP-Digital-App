@@ -24,7 +24,7 @@ import IDCard from '../../components/digital-id/IDCard';
 
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
-import { isPermissionDeniedError } from '../../src/services/PermissionManager';
+import { isPermissionDeniedError, showPermissionSettingsAlert } from '../../src/services/PermissionManager';
 import { saveImageToGallery } from '../../src/utils/mediaSave';
 
 export default function HomeScreen() {
@@ -76,7 +76,7 @@ export default function HomeScreen() {
       Alert.alert('Downloaded', 'Status gallery me save ho gaya.');
     } catch (error) {
       if (isPermissionDeniedError(error)) {
-        router.push('/permissions/recovery');
+        showPermissionSettingsAlert();
         return;
       }
       Alert.alert('Download failed', error?.message || 'Status download nahi ho paya.');
@@ -129,7 +129,7 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Home ID card download failed', error);
       if (isPermissionDeniedError(error)) {
-        router.push('/permissions/recovery');
+        showPermissionSettingsAlert();
         return;
       }
       Alert.alert('Download failed', error?.message || 'Could not generate the ID card image.');

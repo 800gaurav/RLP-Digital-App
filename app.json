@@ -21,8 +21,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/rlp_bottle_square.png",
-        "backgroundColor": "#006E2E"
+        "foregroundImage": "./assets/rlp_splash.png",
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.rlp.digital",
       "permissions": [
