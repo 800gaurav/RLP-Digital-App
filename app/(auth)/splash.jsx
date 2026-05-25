@@ -100,7 +100,7 @@ export default function SplashScreen() {
       </Animated.View>
 
       <View style={styles.bottomSection}>
-        <Text style={styles.poweredBy}>Powered by Onetap</Text>
+        <Text style={styles.poweredBy}>Powered by GenzTeck Solutions</Text>
         <View style={styles.dotsRow}>
           <BouncingDot delay={0} />
           <BouncingDot delay={150} />
