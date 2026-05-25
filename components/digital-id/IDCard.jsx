@@ -1,20 +1,10 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { brandBottle, brandLogo } from '../../constants/brandAssets';
 import { Colors } from '../../constants/colors';
 import { FontFamily } from '../../constants/typography';
 import { resolveMediaUrl } from '../../services/media';
-
-function BottleMark() {
-  return (
-    <View style={styles.logoBox}>
-      <View style={styles.logoNeck} />
-      <View style={styles.logoBody}>
-        <Text style={styles.logoText}>RLP</Text>
-      </View>
-    </View>
-  );
-}
 
 export default function IDCard({ user }) {
   const profilePhoto = resolveMediaUrl(user.profilePhoto);
@@ -34,12 +24,16 @@ export default function IDCard({ user }) {
       >
         <View style={styles.patternDotOne} />
         <View style={styles.patternDotTwo} />
-        <View style={styles.watermark}><Text style={styles.watermarkText}>RLP</Text></View>
+        <View style={styles.watermark}>
+          <Image source={brandLogo} style={styles.watermarkImage} resizeMode="contain" />
+        </View>
 
         <View style={styles.topRow}>
           <View>
             <Text style={styles.kicker}>Membership ID</Text>
-            <BottleMark />
+            <View style={styles.logoBox}>
+              <Image source={brandBottle} style={styles.logoImage} resizeMode="contain" />
+            </View>
           </View>
           <View style={styles.verifiedWrap}>
             <Text style={styles.verifiedText}>VERIFIED MEMBER</Text>
@@ -66,11 +60,6 @@ export default function IDCard({ user }) {
         </View>
 
         <View style={styles.footer}>
-          <View style={styles.signatureBlock}>
-            <Text style={styles.smallLabel}>Digital Stamp</Text>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureText}>Authorized Signatory</Text>
-          </View>
           <View style={styles.metaBlock}>
             <View>
               <Text style={styles.smallLabel}>Issue Date</Text>
@@ -80,6 +69,11 @@ export default function IDCard({ user }) {
               <Text style={styles.smallLabel}>Validity</Text>
               <Text style={styles.metaValueGreen}>Lifetime</Text>
             </View>
+          </View>
+          <View style={styles.signatureBlock}>
+            <Text style={styles.smallLabel}>Digital Stamp</Text>
+            <View style={styles.signatureLine} />
+            <Text style={styles.signatureText}>Authorized Signatory</Text>
           </View>
         </View>
       </LinearGradient>
@@ -102,13 +96,22 @@ const styles = StyleSheet.create({
   patternDotOne: { position: 'absolute', width: 230, height: 230, borderRadius: 115, backgroundColor: 'rgba(15,123,62,0.13)', top: -92, left: -88 },
   patternDotTwo: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.16)', bottom: -58, right: -48 },
   watermark: { position: 'absolute', right: -16, top: 138, opacity: 0.055, transform: [{ rotate: '-12deg' }] },
-  watermarkText: { fontFamily: FontFamily.black, fontSize: 108, color: Colors.onSurface },
+  watermarkImage: { width: 170, height: 170 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 },
   kicker: { fontFamily: FontFamily.bold, fontSize: 10, color: 'rgba(35,27,0,0.58)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 },
-  logoBox: { width: 52, height: 52, borderRadius: 14, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
-  logoNeck: { width: 12, height: 12, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: Colors.rlpGreen },
-  logoBody: { width: 26, height: 26, borderRadius: 7, backgroundColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: FontFamily.black, fontSize: 8, color: Colors.white },
+  logoBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#7A5A00',
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  logoImage: { width: 54, height: 54, opacity: 1 },
   verifiedWrap: { alignItems: 'flex-end' },
   verifiedText: { fontFamily: FontFamily.black, fontSize: 10, color: Colors.white, backgroundColor: Colors.rlpGreen, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, overflow: 'hidden', letterSpacing: 0.4 },
   unitText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.72)', marginTop: 5 },
@@ -123,12 +126,12 @@ const styles = StyleSheet.create({
   voterLabel: { fontFamily: FontFamily.black, fontSize: 9, color: 'rgba(35,27,0,0.56)', letterSpacing: 0.8 },
   voterValue: { fontFamily: FontFamily.bold, fontSize: 12, color: '#231B00' },
   location: { fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(35,27,0,0.76)', marginTop: 10 },
-  footer: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
-  signatureBlock: { flex: 1, paddingTop: 16, paddingRight: 14 },
+  footer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
+  signatureBlock: { flex: 1, paddingTop: 28, paddingLeft: 14, justifyContent: 'flex-end', alignItems: 'flex-end' },
   smallLabel: { fontFamily: FontFamily.black, fontSize: 8, color: 'rgba(35,27,0,0.48)', letterSpacing: 0.9, textTransform: 'uppercase' },
   signatureLine: { width: 118, height: 1, backgroundColor: 'rgba(35,27,0,0.55)', marginTop: 18, marginBottom: 4 },
   signatureText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.7)' },
-  metaBlock: { width: 104, minHeight: 96, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.46)', padding: 10, justifyContent: 'space-between' },
+  metaBlock: { width: 104, minHeight: 96, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.46)', padding: 10, justifyContent: 'space-between', marginTop: 14 },
   metaValue: { fontFamily: FontFamily.bold, fontSize: 11, color: '#231B00', marginTop: 2 },
   metaValueGreen: { fontFamily: FontFamily.bold, fontSize: 11, color: Colors.rlpGreen, marginTop: 2 },
 });

@@ -68,6 +68,11 @@ export default function PosterMakerScreen() {
   };
 
   const handleTemplatePress = (template) => {
+    if (!isSubscribed) {
+      setSelectedTemplate(template);
+      setPaywallVisible(true);
+      return;
+    }
     setSelectedTemplate(template);
     setEditorVisible(true);
   };
@@ -130,7 +135,9 @@ export default function PosterMakerScreen() {
               <PosterEditor
                 template={selectedTemplate}
                 user={user}
+                isSubscribed={isSubscribed}
                 onClose={() => setEditorVisible(false)}
+                onRequireSubscription={() => setPaywallVisible(true)}
                 onRequestDownload={handlePosterExportAccess}
                 helperText={
                   isSubscribed

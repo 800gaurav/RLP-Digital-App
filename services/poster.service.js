@@ -1,21 +1,13 @@
 import { apiClient } from './api';
-import { demoSubscription, demoTemplates } from './mockData';
+import { demoSubscription } from './mockData';
 import { normalizeMediaItem } from './media';
 import { createUploadFile, uploadForm } from './upload';
 
 export async function getTemplates(category) {
-  try {
-    const response = await apiClient.get('/poster/templates', {
-      params: category ? { category } : undefined,
-    });
-    return response.data.data.map(normalizeMediaItem);
-  } catch (error) {
-    // Offline fallback keeps template browsing usable when the API is unreachable.
-    if (!error.response) {
-      return category ? demoTemplates.filter((item) => item.category === category) : demoTemplates;
-    }
-    throw error;
-  }
+  const response = await apiClient.get('/poster/templates', {
+    params: category ? { category } : undefined,
+  });
+  return response.data.data.map(normalizeMediaItem);
 }
 
 export async function getSubscriptionStatus() {

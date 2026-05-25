@@ -237,46 +237,53 @@ export default function HomeScreen() {
           </Pressable>
         </View> */}
 
-        {officials.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderTitle}>Padadhikari (Leaders)</Text>
-              <Pressable onPress={() => router.push('/padadhikari')} accessibilityRole="button">
-                <Text style={styles.viewAll}>View All</Text>
-              </Pressable>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderTitle}>Padadhikari (Leaders)</Text>
+            <Pressable onPress={() => router.push('/padadhikari')} accessibilityRole="button">
+              <Text style={styles.viewAll}>View All</Text>
+            </Pressable>
+          </View>
+          {officials.length === 0 ? (
+            <View style={styles.emptySectionState}>
+              <Text style={styles.emptySectionText}>Abhi koi padadhikari nahi hain</Text>
             </View>
+          ) : (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.padadhikariScroll}
             >
-              {officials.slice(0, 10).map((official) => (
-                <Pressable
-                  key={official.id}
-                  style={({ pressed }) => [styles.officialCard, pressed && { opacity: 0.85 }]}
-                  onPress={() => router.push({ pathname: '/padadhikari/[id]', params: { id: official.id } })}
-                  accessibilityRole="button"
-                  accessibilityLabel={official.fullName}
-                >
-                  {official.photoUrl || official.imageUrl ? (
-                    <Image source={{ uri: official.photoUrl || official.imageUrl }} style={styles.officialPhoto} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.officialPhoto, styles.officialPhotoPlaceholder]}>
-                      <Text style={styles.officialInitial}>{official.fullName?.charAt(0) || 'R'}</Text>
+              {officials.slice(0, 10).map((official) => {
+                const photoUri = official.imageUrl || official.photoUrl || official.thumbnailUrl;
+                return (
+                  <Pressable
+                    key={official.id}
+                    style={({ pressed }) => [styles.officialCard, pressed && { opacity: 0.85 }]}
+                    onPress={() => router.push({ pathname: '/padadhikari/[id]', params: { id: official.id } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={official.fullName}
+                  >
+                    {photoUri ? (
+                      <Image source={{ uri: photoUri }} style={styles.officialPhoto} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.officialPhoto, styles.officialPhotoPlaceholder]}>
+                        <Text style={styles.officialInitial}>{official.fullName?.charAt(0) || 'R'}</Text>
+                      </View>
+                    )}
+                    <View style={styles.officialInfo}>
+                      <Text style={styles.officialName} numberOfLines={1}>{official.fullName}</Text>
+                      <Text style={styles.officialDesignation} numberOfLines={1}>{official.designation}</Text>
+                      <View style={styles.officialActions}>
+                        <Text style={styles.officialActionIcon}>Verified</Text>
+                      </View>
                     </View>
-                  )}
-                  <View style={styles.officialInfo}>
-                    <Text style={styles.officialName} numberOfLines={1}>{official.fullName}</Text>
-                    <Text style={styles.officialDesignation} numberOfLines={1}>{official.designation}</Text>
-                    <View style={styles.officialActions}>
-                      <Text style={styles.officialActionIcon}>Verified</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
             </ScrollView>
-          </View>
-        )}
+          )}
+        </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -285,32 +292,38 @@ export default function HomeScreen() {
               <Text style={styles.viewAll}>View All</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trainingScroll}>
-            {trainings.slice(0, 8).map((video) => (
-              <Pressable
-                key={video.id}
-                style={({ pressed }) => [styles.trainingCard, pressed && { opacity: 0.85 }]}
-                onPress={() => router.push({ pathname: '/training-videos/[id]', params: { id: video.id } })}
-                accessibilityRole="button"
-              >
-                {video.thumbnailUrl ? (
-                  <Image source={{ uri: video.thumbnailUrl }} style={styles.trainingThumb} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.trainingThumb, styles.trainingThumbFallback]}>
-                    <Text style={styles.trainingThumbText}>RLP</Text>
+          {trainings.length === 0 ? (
+            <View style={styles.emptySectionState}>
+              <Text style={styles.emptySectionText}>Abhi koi training videos nahi hain</Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trainingScroll}>
+              {trainings.slice(0, 8).map((video) => (
+                <Pressable
+                  key={video.id}
+                  style={({ pressed }) => [styles.trainingCard, pressed && { opacity: 0.85 }]}
+                  onPress={() => router.push({ pathname: '/training-videos/[id]', params: { id: video.id } })}
+                  accessibilityRole="button"
+                >
+                  {video.thumbnailUrl ? (
+                    <Image source={{ uri: video.thumbnailUrl }} style={styles.trainingThumb} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.trainingThumb, styles.trainingThumbFallback]}>
+                      <Text style={styles.trainingThumbText}>RLP</Text>
+                    </View>
+                  )}
+                  <View style={styles.trainingPlayOverlay}>
+                    <View style={styles.trainingPlayCircle}>
+                      <Ionicons name="play" size={16} color={Colors.rlpGreen} />
+                    </View>
                   </View>
-                )}
-                <View style={styles.trainingPlayOverlay}>
-                  <View style={styles.trainingPlayCircle}>
-                    <Ionicons name="play" size={16} color={Colors.rlpGreen} />
+                  <View style={styles.trainingInfo}>
+                    <Text style={styles.trainingCaption} numberOfLines={1}>{video.title}</Text>
                   </View>
-                </View>
-                <View style={styles.trainingInfo}>
-                  <Text style={styles.trainingCaption} numberOfLines={1}>{video.title}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </ScrollView>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -396,6 +409,8 @@ const styles = StyleSheet.create({
   },
   updateTitle: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface, marginBottom: 4 },
   updateBody: { fontFamily: FontFamily.regular, fontSize: 12, lineHeight: 18, color: Colors.onSurfaceVariant },
+  emptySectionState: { paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' },
+  emptySectionText: { fontFamily: FontFamily.regular, fontSize: 14, color: 'rgba(255,255,255,0.82)' },
   padadhikariScroll: { paddingHorizontal: 16, gap: 12 },
   officialCard: {
     width: 240, backgroundColor: Colors.white, padding: 16, borderRadius: 12,

@@ -6,9 +6,9 @@
     "orientation": "portrait",
     "scheme": "rlpdigital",
     "userInterfaceStyle": "light",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/rlp_logo.jpg",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/rlp_splash.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#006E2E"
     },
@@ -21,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/rlp_bottle.png",
         "backgroundColor": "#006E2E"
       },
       "package": "com.rlp.digital",

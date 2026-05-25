@@ -250,7 +250,15 @@ function PosterRibbon({ customization, user, compact, theme }) {
   );
 }
 
-export default function PosterEditor({ template, user, onClose, onRequestDownload, helperText }) {
+export default function PosterEditor({
+  template,
+  user,
+  isSubscribed = false,
+  onClose,
+  onRequireSubscription,
+  onRequestDownload,
+  helperText,
+}) {
   const viewShotRef = useRef(null);
   const { width: windowWidth } = useWindowDimensions();
   const [customization, setCustomization] = useState(() => buildDefaultPosterCustomization(user));
@@ -329,6 +337,24 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
       return false;
     }
     return true;
+  };
+
+  const ensureCustomizationAccess = () => {
+    if (isSubscribed) return true;
+    Alert.alert(
+      'Subscription Required',
+      'Poster edit aur theme choose karne ke liye pehle subscription lena hoga.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Subscribe',
+          onPress: () => {
+            if (onRequireSubscription) onRequireSubscription();
+          },
+        },
+      ],
+    );
+    return false;
   };
 
   const capturePoster = async (actionType) => {
@@ -418,10 +444,22 @@ export default function PosterEditor({ template, user, onClose, onRequestDownloa
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.82 }]} onPress={() => setThemePickerVisible(true)}>
+        <Pressable
+          style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.82 }]}
+          onPress={() => {
+            if (!ensureCustomizationAccess()) return;
+            setThemePickerVisible(true);
+          }}
+        >
           <Text style={styles.secondaryText}>Choose Theme</Text>
         </Pressable>
-        <Pressable style={({ pressed }) => [styles.customizeBtn, pressed && { opacity: 0.86 }]} onPress={() => setSheetVisible(true)}>
+        <Pressable
+          style={({ pressed }) => [styles.customizeBtn, pressed && { opacity: 0.86 }]}
+          onPress={() => {
+            if (!ensureCustomizationAccess()) return;
+            setSheetVisible(true);
+          }}
+        >
           <Text style={styles.customizeText}>Edit Details</Text>
         </Pressable>
       </View>

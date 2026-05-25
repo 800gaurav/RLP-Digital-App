@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { brandSplash } from '../../constants/brandAssets';
 import { Colors } from '../../constants/colors';
-import { getAccessToken } from '../../services/api';
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../../services/api';
+import { refreshToken as refreshSession } from '../../services/auth.service';
 import { checkPermissions } from '../../src/services/PermissionManager';
 
 const { width, height } = Dimensions.get('window');
@@ -23,17 +25,6 @@ function BouncingDot({ delay }) {
     return () => bounce.stop();
   }, [delay, translateY]);
   return <Animated.View style={[styles.dot, { transform: [{ translateY }] }]} />;
-}
-
-function BottleLogo() {
-  return (
-    <View style={styles.bottleContainer}>
-      <View style={styles.bottleNeck} />
-      <View style={styles.bottleBody}>
-        <Text style={styles.verifiedIcon}>✓</Text>
-      </View>
-    </View>
-  );
 }
 
 export default function SplashScreen() {
@@ -59,8 +50,34 @@ export default function SplashScreen() {
         }
 
         const token = await getAccessToken();
-        if (token) router.replace('/(tabs)');
-        else router.replace('/(auth)/login');
+        if (token) {
+          router.replace('/(tabs)');
+          return;
+        }
+
+        const refreshToken = await getRefreshToken();
+        if (refreshToken) {
+          try {
+            const refreshResponse = await refreshSession(refreshToken);
+            const newAccessToken =
+              refreshResponse?.accessToken
+              || refreshResponse?.data?.accessToken
+              || refreshResponse?.data?.tokens?.accessToken;
+            const nextRefreshToken =
+              refreshResponse?.data?.tokens?.refreshToken
+              || refreshToken;
+
+            if (newAccessToken) {
+              await setTokens(newAccessToken, nextRefreshToken);
+              router.replace('/(tabs)');
+              return;
+            }
+          } catch (_error) {
+            await clearTokens();
+          }
+        }
+
+        router.replace('/(auth)/login');
       } catch {
         router.replace('/(auth)/login');
       }
@@ -77,9 +94,7 @@ export default function SplashScreen() {
       style={styles.container}
     >
       <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.glassCard}>
-          <BottleLogo />
-        </View>
+        <Image source={brandSplash} style={styles.logoImage} resizeMode="contain" />
         <Text style={styles.appName}>RLP Digital</Text>
         <Text style={styles.tagline}>Jai Kisan, Jai Jawan.{'\n'}Together for a stronger Rajasthan.</Text>
       </Animated.View>
@@ -99,31 +114,12 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { alignItems: 'center', paddingHorizontal: 32 },
-  glassCard: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+  logoImage: {
+    width: Math.min(width * 0.7, 280),
+    height: Math.min(height * 0.28, 220),
+    marginBottom: 24,
+    borderRadius: 999,
   },
-  bottleContainer: { alignItems: 'center' },
-  bottleNeck: {
-    width: 32, height: 40, backgroundColor: Colors.white,
-    borderTopLeftRadius: 8, borderTopRightRadius: 8, marginBottom: -2,
-  },
-  bottleBody: {
-    width: 64, height: 112, backgroundColor: Colors.white,
-    borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-  },
-  verifiedIcon: { fontSize: 32, color: Colors.rlpGreen, fontWeight: '900' },
   appName: { fontSize: 32, fontWeight: '700', color: Colors.white, marginBottom: 12, letterSpacing: -0.5 },
   tagline: { fontSize: 16, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 24 },
   bottomSection: { position: 'absolute', bottom: 48, alignItems: 'center' },

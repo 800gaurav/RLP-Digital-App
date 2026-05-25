@@ -51,7 +51,7 @@ export default function PadadhikariDetailScreen() {
     );
   }
 
-  const photoUri = official.photoUrl || official.imageUrl;
+  const photoUri = official.imageUrl || official.photoUrl || official.thumbnailUrl;
   const level = RANK_LABELS[official.rank] ?? official.rank;
   const district = official.district || official.districtName || official.district_name;
   const phone = official.phone || official.contactNumber || official.mobile || official.mobileNumber;

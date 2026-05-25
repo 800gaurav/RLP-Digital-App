@@ -49,15 +49,17 @@ export function normalizeMediaItem(item) {
   const thumbnailUrl = resolveMediaUrl(item.thumbnailUrl);
   const videoUrl = resolveMediaUrl(item.videoUrl);
   const imageUrl = resolveMediaUrl(item.imageUrl);
+  const rawPhotoUrl = resolveMediaUrl(item.photoUrl);
   const rawMediaUrl = resolveMediaUrl(item.mediaUrl);
   const mediaUrl = item.mediaType === 'video'
     ? (videoUrl || rawMediaUrl || thumbnailUrl)
     : (imageUrl || rawMediaUrl || thumbnailUrl);
+  const photoUrl = rawPhotoUrl || imageUrl || thumbnailUrl;
 
   return {
     ...item,
     profilePhoto: resolveMediaUrl(item.profilePhoto),
-    photoUrl: resolveMediaUrl(item.photoUrl),
+    photoUrl,
     mediaUrl,
     thumbnailUrl,
     videoUrl,

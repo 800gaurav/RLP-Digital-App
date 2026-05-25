@@ -2,26 +2,17 @@ import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+  Image,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { brandLogo } from '../../constants/brandAssets';
 import { FontFamily } from '../../constants/typography';
 import { login } from '../../services/auth.service';
 import { setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
-
-function BottleLogoSmall() {
-  return (
-    <View style={styles.logoCircle}>
-      <View style={styles.miniNeck} />
-      <View style={styles.miniBody}>
-        <Ionicons name="checkmark" size={18} color={Colors.white} />
-      </View>
-    </View>
-  );
-}
 
 export default function LoginScreen() {
   const queryClient = useQueryClient();
@@ -73,7 +64,9 @@ export default function LoginScreen() {
         >
           {/* Logo header */}
           <View style={styles.header}>
-            <BottleLogoSmall />
+            <View style={styles.logoFrame}>
+              <Image source={brandLogo} style={styles.logoImage} resizeMode="contain" />
+            </View>
             <Text style={styles.title}>RLP Digital</Text>
             <Text style={styles.subtitle}>Rashtriya Loktantrik Party member app</Text>
           </View>
@@ -123,9 +116,9 @@ export default function LoginScreen() {
               {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
             </View>
 
-            <TouchableOpacity style={styles.forgotContainer} onPress={() => {}}>
+            {/* <TouchableOpacity style={styles.forgotContainer} onPress={() => {}}>
               <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity
               style={[styles.loginButton, isSubmitting && styles.buttonDisabled]}
@@ -177,13 +170,10 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 },
   header: { alignItems: 'center', marginBottom: 24 },
-  logoCircle: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: Colors.rlpYellow, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  logoFrame: {
+    width: 132, height: 132, borderRadius: 66, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
-  miniNeck: { width: 16, height: 20, backgroundColor: Colors.rlpGreen, borderTopLeftRadius: 4, borderTopRightRadius: 4, marginBottom: -1 },
-  miniBody: { width: 32, height: 44, backgroundColor: Colors.rlpGreen, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  miniCheck: { color: Colors.white, fontSize: 16, fontWeight: '900' },
+  logoImage: { width: '100%', height: '100%' },
   title: { fontFamily: FontFamily.bold, fontSize: 24, color: Colors.white, marginBottom: 4 },
   subtitle: { fontFamily: FontFamily.regular, fontSize: 14, color: 'rgba(255,255,255,0.84)' },
   card: {

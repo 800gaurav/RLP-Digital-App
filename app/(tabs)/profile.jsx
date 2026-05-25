@@ -69,7 +69,11 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const canAccessAdmin = user.role === 'admin' || user.isAdmin || user.email?.endsWith('@rlpdigital.in');
+  const canAccessAdmin =
+    user.role === 'admin'
+    || user.isAdmin
+    || user.email === 'admin@rlp.com'
+    || user.email?.endsWith('@rlpdigital.in');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

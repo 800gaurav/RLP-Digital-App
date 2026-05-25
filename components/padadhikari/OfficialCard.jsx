@@ -7,6 +7,7 @@ export default function OfficialCard({ official, onPress }) {
   const district = official.district || official.districtName || official.district_name;
   const phone = official.phone || official.contactNumber || official.mobile || official.mobileNumber;
   const location = [district || '-', official.state].filter(Boolean).join(', ');
+  const photoUri = official.imageUrl || official.photoUrl || official.thumbnailUrl;
 
   return (
     <Pressable
@@ -15,8 +16,8 @@ export default function OfficialCard({ official, onPress }) {
       accessibilityRole="button"
       accessibilityLabel={official.fullName}
     >
-      {official.photoUrl ? (
-        <Image source={{ uri: official.photoUrl }} style={styles.photo} resizeMode="cover" />
+      {photoUri ? (
+        <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="cover" />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
           <Text style={styles.photoInitial}>{official.fullName.charAt(0).toUpperCase()}</Text>

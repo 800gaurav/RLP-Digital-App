@@ -122,6 +122,10 @@ function StatCard({ icon, label, value, onPress }) {
   );
 }
 
+function pickCount(...values) {
+  return values.find((value) => value !== null && value !== undefined) ?? 0;
+}
+
 function SelectField({ label, value, options, onSelect, placeholder }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((item) => item.value === value || item === value);
@@ -245,8 +249,20 @@ export default function AdminDashboardScreen() {
     || user?.isAdmin
     || user?.email === 'admin@rlp.com'
     || user?.email?.endsWith('@rlpdigital.in');
-  const { data: overview, refetch: refetchOverview } = useQuery({ queryKey: ['admin-overview'], queryFn: getAdminOverview, enabled: canAccessAdmin });
-  const { data: content, refetch: refetchContent } = useQuery({ queryKey: ['admin-content'], queryFn: getAdminContentSummary, enabled: canAccessAdmin });
+  const { data: overview, refetch: refetchOverview } = useQuery({
+    queryKey: ['admin-overview'],
+    queryFn: getAdminOverview,
+    enabled: canAccessAdmin,
+    refetchInterval: 30000,
+    refetchOnReconnect: true,
+  });
+  const { data: content, refetch: refetchContent } = useQuery({
+    queryKey: ['admin-content'],
+    queryFn: getAdminContentSummary,
+    enabled: canAccessAdmin,
+    refetchInterval: 30000,
+    refetchOnReconnect: true,
+  });
   const { data: notifications = [], refetch: refetchNotifications } = useQuery({ queryKey: ['admin-notifications'], queryFn: getNotifications, enabled: canAccessAdmin });
   const { data: officials = [], refetch: refetchOfficials } = useQuery({ queryKey: ['admin-officials'], queryFn: () => getPadadhikari(), enabled: canAccessAdmin });
   const { data: reels = [], refetch: refetchReels } = useQuery({ queryKey: ['admin-reels'], queryFn: getReels, enabled: canAccessAdmin });
@@ -435,7 +451,7 @@ export default function AdminDashboardScreen() {
       else await createTrainingVideo(training);
       setTraining(emptyTraining);
       setEditing((p) => ({ ...p, training: null }));
-      await Promise.all([refetchTrainings(), refetchOverview()]);
+      await Promise.all([refetchTrainings(), refetchOverview(), refetchContent()]);
       invalidatePublicData();
       Alert.alert('Done', 'Training video save ho gaya.');
     } catch (error) {
@@ -454,7 +470,7 @@ export default function AdminDashboardScreen() {
       else await createReel(reel);
       setReel(emptyReel);
       setEditing((p) => ({ ...p, reel: null }));
-      await Promise.all([refetchReels(), refetchOverview()]);
+      await Promise.all([refetchReels(), refetchOverview(), refetchContent()]);
       invalidatePublicData();
       Alert.alert('Done', 'Status save ho gaya.');
     } catch (error) {
@@ -704,12 +720,12 @@ export default function AdminDashboardScreen() {
               <Text style={styles.heroTitle}>Users, content, notifications aur party updates ek jagah se manage karein.</Text>
             </View>
             <View style={styles.statsGrid}>
-              <StatCard icon="people" label="Users" value={stats.users ?? 0} />
-              <StatCard icon="id-card" label="Subscribers" value={stats.activeSubscriptions ?? 0} />
-              <StatCard icon="ribbon" label="Padadhikari" value={officials.length || content?.officials || stats.totalPadadhikari || 0} onPress={() => setTab('officials')} />
-              <StatCard icon="play-circle" label="Reels/Status" value={reels.length || content?.reels || stats.reels || 0} onPress={() => setTab('media')} />
-              <StatCard icon="videocam" label="Training Videos" value={trainings.length || content?.trainingVideos || stats.trainingVideos || 0} onPress={() => setTab('media')} />
-              <StatCard icon="notifications" label="Notifications" value={notifications.length || content?.notifications || stats.notifications || 0} onPress={() => setTab('notify')} />
+              <StatCard icon="people" label="Users" value={pickCount(stats.users, stats.totalUsers)} />
+              <StatCard icon="id-card" label="Subscribers" value={pickCount(stats.activeSubscriptions)} />
+              <StatCard icon="ribbon" label="Padadhikari" value={pickCount(officials.length, content?.officials, stats.totalPadadhikari)} onPress={() => setTab('officials')} />
+              <StatCard icon="play-circle" label="Reels/Status" value={pickCount(reels.length, content?.reels, stats.reels)} onPress={() => setTab('media')} />
+              <StatCard icon="videocam" label="Training Videos" value={pickCount(trainings.length, content?.trainingVideos, stats.trainingVideos)} onPress={() => setTab('media')} />
+              <StatCard icon="notifications" label="Notifications" value={pickCount(notifications.length, content?.notifications, stats.notifications)} onPress={() => setTab('notify')} />
               <StatCard icon="time" label="All History" value={historyItems.length} onPress={() => setTab('history')} />
             </View>
           </>
