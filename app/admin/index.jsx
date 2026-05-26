@@ -20,7 +20,9 @@ import { createPosterTemplate, deletePosterTemplate, getTemplates, updatePosterT
 import { createPadadhikari, deletePadadhikari, getPadadhikari, updatePadadhikari } from '../../services/padadhikari.service';
 import { createTrainingVideo, deleteTrainingVideo, getTrainingVideos, updateTrainingVideo } from '../../services/videos.service';
 import { createReel, deleteReel, getReels, updateReel } from '../../services/reels.service';
+import SearchableDistrictSelect from '../../components/ui/SearchableDistrictSelect';
 import { Colors } from '../../constants/colors';
+import { isValidRajasthanDistrict } from '../../constants/rajasthanDistricts';
 import { FontFamily } from '../../constants/typography';
 
 const TABS = [
@@ -45,15 +47,6 @@ const OFFICIAL_LEVELS = [
   { label: 'State', value: 'state' },
   { label: 'District', value: 'district' },
   { label: 'Block', value: 'block' },
-];
-
-const RAJASTHAN_DISTRICTS = [
-  'Ajmer', 'Alwar', 'Anupgarh', 'Balotra', 'Banswara', 'Baran', 'Barmer', 'Beawar', 'Bharatpur', 'Bhilwara',
-  'Bikaner', 'Bundi', 'Chittorgarh', 'Churu', 'Dausa', 'Deeg', 'Dholpur', 'Didwana-Kuchaman', 'Dudu', 'Dungarpur',
-  'Ganganagar', 'Gangapur City', 'Hanumangarh', 'Jaipur', 'Jaipur Rural', 'Jaisalmer', 'Jalore', 'Jhalawar',
-  'Jhunjhunu', 'Jodhpur', 'Jodhpur Rural', 'Karauli', 'Kekri', 'Khairthal-Tijara', 'Kota', 'Kotputli-Behror',
-  'Nagaur', 'Neem Ka Thana', 'Pali', 'Phalodi', 'Pratapgarh', 'Rajsamand', 'Salumbar', 'Sanchore', 'Sawai Madhopur',
-  'Shahpura', 'Sikar', 'Sirohi', 'Tonk', 'Udaipur',
 ];
 
 const emptyOfficial = { fullName: '', designation: '', rank: 'district', state: 'Rajasthan', district: '', block: '', phone: '', email: '', photoUri: '' };
@@ -157,62 +150,6 @@ function SelectField({ label, value, options, onSelect, placeholder }) {
                   }}
                 >
                   <Text style={[styles.selectOptionText, active && styles.selectOptionTextActive]}>{optionLabel}</Text>
-                  {active ? <Ionicons name="checkmark" size={16} color={Colors.rlpGreen} /> : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function SearchableSelectField({ label, value, options, onChangeText, onSelect, placeholder }) {
-  const [open, setOpen] = useState(false);
-  const query = (value || '').trim().toLowerCase();
-  const filteredOptions = query
-    ? options.filter((option) => option.toLowerCase().includes(query))
-    : options;
-
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.selectControl}>
-        <TextInput
-          style={styles.selectSearchInput}
-          value={value}
-          onChangeText={(text) => {
-            onChangeText(text);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder={placeholder || `Search ${label}`}
-          placeholderTextColor={Colors.outline}
-        />
-        <Pressable onPress={() => setOpen((current) => !current)} hitSlop={8}>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.onSurfaceVariant} />
-        </Pressable>
-      </View>
-      {open ? (
-        <View style={styles.selectMenu}>
-          <ScrollView nestedScrollEnabled style={styles.selectList} keyboardShouldPersistTaps="handled">
-            {filteredOptions.length === 0 ? (
-              <View style={styles.selectOption}>
-                <Text style={styles.selectOptionText}>No district found</Text>
-              </View>
-            ) : filteredOptions.map((option) => {
-              const active = option === value;
-              return (
-                <Pressable
-                  key={option}
-                  style={[styles.selectOption, active && styles.selectOptionActive]}
-                  onPress={() => {
-                    onSelect(option);
-                    setOpen(false);
-                  }}
-                >
-                  <Text style={[styles.selectOptionText, active && styles.selectOptionTextActive]}>{option}</Text>
                   {active ? <Ionicons name="checkmark" size={16} color={Colors.rlpGreen} /> : null}
                 </Pressable>
               );
@@ -424,6 +361,7 @@ export default function AdminDashboardScreen() {
     if (!official.fullName.trim() || !official.designation.trim()) return Alert.alert('Padadhikari', 'Name aur designation jaruri hai.');
     if (!official.rank) return Alert.alert('Level', 'Level select karna jaruri hai.');
     if (!official.district.trim()) return Alert.alert('District', 'District select karna jaruri hai.');
+    if (!isValidRajasthanDistrict(official.district)) return Alert.alert('District', 'District list me se valid Rajasthan district select kijiye.');
     if (official.rank === 'block' && !official.block.trim()) return Alert.alert('Block', 'Block name jaruri hai.');
     if (official.phone && official.phone.length !== 10) return Alert.alert('Phone', 'Phone number 10 digits ka hona chahiye.');
     setSaving('official');
@@ -756,14 +694,14 @@ export default function AdminDashboardScreen() {
                 options={OFFICIAL_LEVELS}
                 onSelect={(value) => setOfficial((p) => ({ ...p, rank: value, block: value === 'block' ? p.block : '' }))}
               />
-              <SearchableSelectField
-                label="District"
-                value={official.district}
-                options={RAJASTHAN_DISTRICTS}
-                onChangeText={(value) => setOfficial((p) => ({ ...p, district: value }))}
-                onSelect={(value) => setOfficial((p) => ({ ...p, district: value }))}
-                placeholder="District search ya type karein"
-              />
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>District</Text>
+                <SearchableDistrictSelect
+                  value={official.district}
+                  onSelect={(value) => setOfficial((p) => ({ ...p, district: value }))}
+                  placeholder="District search karke select karein"
+                />
+              </View>
               {official.rank === 'block' ? (
                 <Field label="Block" value={official.block} onChangeText={(v) => setOfficial((p) => ({ ...p, block: v }))} />
               ) : null}

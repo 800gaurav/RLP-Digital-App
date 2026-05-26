@@ -60,21 +60,63 @@ export function getApiErrorMessage(error, fallbackMessage = 'Something went wron
 export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat ho gaya. Kripya dobara koshish karein.') {
   const status = error?.response?.status;
   const message = getApiErrorMessage(error, fallbackMessage);
+  const code = error?.code;
+  const method = error?.config?.method?.toUpperCase?.() || '';
+  const url = String(error?.config?.url || '');
 
   if (!error?.response) {
-    return 'Server se connection nahi ho pa raha. Kripya thodi der baad dobara try karein.';
+    if (code === 'ECONNABORTED' || /timeout/i.test(message)) {
+      return 'Request time out ho gayi. Internet slow ho sakta hai, thodi der baad dobara try karein.';
+    }
+    if (/network error|network request failed/i.test(message)) {
+      return 'Internet ya server connection me problem hai. Network check karke dobara try karein.';
+    }
+    return 'Server se connection nahi ho pa raha. Internet ya backend server check karke dobara try karein.';
   }
 
   if (status === 401) {
-    return 'Email ya password sahi nahi hai.';
+    if (url.includes('/auth/login')) {
+      return 'Login Credentials: ID or password sahi nahi hai. Please Shi Id or Password Enter kare.';
+    }
+    if (message.toLowerCase().includes('expired')) {
+      return 'Session expire ho gaya hai. Please dobara login karein.';
+    }
+    return 'Aapka session valid nahi hai. Please dobara login karein.';
+  }
+
+  if (status === 403) {
+    return 'Is action ke liye permission nahi hai.';
+  }
+
+  if (status === 404) {
+    return 'Jo data chahiye tha vo nahi mila. Screen refresh karke dobara try karein.';
   }
 
   if (status === 409) {
-    return 'Is email ya voter ID se account pehle se bana hua hai.';
+    return 'Is mobile number ya voter ID se account pehle se bana hua hai.';
   }
 
   if (status === 400 || status === 422) {
-    return 'Form ki details check karke dobara submit karein.';
+    if (/required/i.test(message)) return 'Required details missing hain. Form check karke dobara submit karein.';
+    if (/email/i.test(message)) return 'Email format sahi nahi hai.';
+    if (/password/i.test(message)) return 'Password details sahi nahi hain. Minimum 8 characters rakhein.';
+    if (/mobile|phone/i.test(message)) return 'Mobile number sahi nahi hai. 10 digit number daliye.';
+    if (/voter/i.test(message)) return 'Voter ID sahi format me nahi hai.';
+    if (/district/i.test(message)) return 'District list me se valid Rajasthan district select kijiye.';
+    return message && message !== fallbackMessage ? message : 'Form ki details check karke dobara submit karein.';
+  }
+
+  if (status === 413) {
+    return 'File bahut badi hai. Chhoti file upload karke try karein.';
+  }
+
+  if (status === 429) {
+    return 'Bahut zyada requests ho gayi hain. Thodi der baad dobara try karein.';
+  }
+
+  if (status >= 500) {
+    const action = method === 'GET' ? 'data load' : 'request';
+    return `Server me issue aa raha hai, ${action} complete nahi ho paayi. Thodi der baad dobara try karein.`;
   }
 
   return message || fallbackMessage;
@@ -165,10 +207,17 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const status = error?.response?.status;
+    const requestUrl = String(originalRequest?.url || '');
+    const isAuthRoute = requestUrl.includes('/auth/login')
+      || requestUrl.includes('/auth/register')
+      || requestUrl.includes('/auth/refresh')
+      || requestUrl.includes('/auth/forgot-password')
+      || requestUrl.includes('/auth/verify-otp')
+      || requestUrl.includes('/auth/reset-password');
     if (status && status !== 401) {
       logApiError(error, 'HTTP request failed');
     }
-    if (!originalRequest || status !== 401 || originalRequest._retry) {
+    if (!originalRequest || status !== 401 || originalRequest._retry || isAuthRoute) {
       return Promise.reject(error);
     }
     if (isRefreshing) {
@@ -185,7 +234,11 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
     try {
       const refreshToken = await tokenStorage.getItem(REFRESH_TOKEN_KEY);
-      if (!refreshToken) throw new Error('No refresh token');
+      if (!refreshToken) {
+        await clearTokens();
+        router.replace('/(auth)/login');
+        return Promise.reject(error);
+      }
       const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
       const newAccessToken =
         response.data?.accessToken

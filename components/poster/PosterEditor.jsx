@@ -15,7 +15,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
+import SearchableDistrictSelect from '../ui/SearchableDistrictSelect';
 import { Colors } from '../../constants/colors';
+import { isValidRajasthanDistrict } from '../../constants/rajasthanDistricts';
 import { FontFamily } from '../../constants/typography';
 import { getFriendlyErrorMessage } from '../../services/api';
 import { isPermissionDeniedError, showPermissionSettingsAlert } from '../../src/services/PermissionManager';
@@ -52,15 +54,6 @@ const FIELD_CONFIG = [
   { key: 'address', label: 'Address', placeholder: 'Enter address', required: false, keyboardType: 'default', maxLength: ADDRESS_MAX_LENGTH },
 ];
 
-const RAJASTHAN_DISTRICTS = [
-  'Ajmer', 'Alwar', 'Anupgarh', 'Balotra', 'Banswara', 'Baran', 'Barmer', 'Beawar', 'Bharatpur', 'Bhilwara',
-  'Bikaner', 'Bundi', 'Chittorgarh', 'Churu', 'Dausa', 'Deeg', 'Dholpur', 'Didwana-Kuchaman', 'Dudu', 'Dungarpur',
-  'Ganganagar', 'Gangapur City', 'Hanumangarh', 'Jaipur', 'Jaipur Rural', 'Jaisalmer', 'Jalore', 'Jhalawar',
-  'Jhunjhunu', 'Jodhpur', 'Jodhpur Rural', 'Karauli', 'Kekri', 'Khairthal-Tijara', 'Kota', 'Kotputli-Behror',
-  'Nagaur', 'Neem Ka Thana', 'Pali', 'Phalodi', 'Pratapgarh', 'Rajsamand', 'Salumbar', 'Sanchore', 'Sawai Madhopur',
-  'Shahpura', 'Sikar', 'Sirohi', 'Tonk', 'Udaipur',
-];
-
 function CustomizationField({ label, value, onChangeText, placeholder, keyboardType, required, maxLength }) {
   return (
     <View style={styles.field}>
@@ -77,62 +70,6 @@ function CustomizationField({ label, value, onChangeText, placeholder, keyboardT
         keyboardType={keyboardType}
         maxLength={maxLength}
       />
-    </View>
-  );
-}
-
-function SearchableDistrictField({ value, onChangeText, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const query = (value || '').trim().toLowerCase();
-  const filteredOptions = query
-    ? RAJASTHAN_DISTRICTS.filter((option) => option.toLowerCase().includes(query))
-    : RAJASTHAN_DISTRICTS;
-
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>District</Text>
-      <View style={styles.selectControl}>
-        <TextInput
-          style={styles.selectSearchInput}
-          value={value}
-          onChangeText={(text) => {
-            onChangeText(text);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search and choose district"
-          placeholderTextColor={Colors.outline}
-        />
-        <Pressable onPress={() => setOpen((current) => !current)} hitSlop={8}>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.onSurfaceVariant} />
-        </Pressable>
-      </View>
-      {open ? (
-        <View style={styles.selectMenu}>
-          <ScrollView nestedScrollEnabled style={styles.selectList} keyboardShouldPersistTaps="handled">
-            {filteredOptions.length === 0 ? (
-              <View style={styles.selectOption}>
-                <Text style={styles.selectOptionText}>No district found</Text>
-              </View>
-            ) : filteredOptions.map((option) => {
-              const active = option === value;
-              return (
-                <Pressable
-                  key={option}
-                  style={[styles.selectOption, active && styles.selectOptionActive]}
-                  onPress={() => {
-                    onSelect(option);
-                    setOpen(false);
-                  }}
-                >
-                  <Text style={[styles.selectOptionText, active && styles.selectOptionTextActive]}>{option}</Text>
-                  {active ? <Ionicons name="checkmark" size={16} color={Colors.rlpGreen} /> : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -336,6 +273,10 @@ export default function PosterEditor({
       Alert.alert('Name required', 'Poster customize karne ke liye name jaruri hai.');
       return false;
     }
+    if (customization.district && !isValidRajasthanDistrict(customization.district)) {
+      Alert.alert('District required', 'District list me se valid Rajasthan district select kijiye.');
+      return false;
+    }
     return true;
   };
 
@@ -515,11 +456,14 @@ export default function PosterEditor({
                   maxLength={field.maxLength}
                 />
               ))}
-              <SearchableDistrictField
-                value={customization.district}
-                onChangeText={(value) => handleChange('district', value)}
-                onSelect={(value) => handleChange('district', value)}
-              />
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>District</Text>
+                <SearchableDistrictSelect
+                  value={customization.district}
+                  onSelect={(value) => handleChange('district', value)}
+                  placeholder="Search and choose district"
+                />
+              </View>
               <CustomizationField
                 label="Address"
                 value={customization.address}
@@ -757,46 +701,6 @@ const styles = StyleSheet.create({
     color: Colors.onSurface,
     backgroundColor: Colors.surfaceContainerLow,
   },
-  selectControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.surfaceContainerLow,
-  },
-  selectSearchInput: {
-    flex: 1,
-    fontFamily: FontFamily.regular,
-    fontSize: 14,
-    color: Colors.onSurface,
-    paddingVertical: 11,
-  },
-  selectMenu: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-    overflow: 'hidden',
-  },
-  selectList: { maxHeight: 180 },
-  selectOption: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.outlineVariant,
-  },
-  selectOptionActive: { backgroundColor: Colors.primaryContainer },
-  selectOptionText: { fontFamily: FontFamily.regular, fontSize: 13, color: Colors.onSurface },
-  selectOptionTextActive: { fontFamily: FontFamily.semiBold, color: Colors.rlpGreen },
   sheetActions: { flexDirection: 'row', gap: 12, marginTop: 18 },
   sheetSecondaryBtn: {
     flex: 1,

@@ -13,6 +13,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Colors } from '../constants/colors';
+import { useAuthStore } from '../store/auth.store';
+import { registerAndSavePushToken, setupNotificationListeners } from '../services/push-notifications.service';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,6 +23,20 @@ const queryClient = new QueryClient({
     queries: { retry: 2, staleTime: 1000 * 60 * 5 },
   },
 });
+
+function NotificationManager() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userId = useAuthStore((state) => state.user?.id || state.user?._id);
+
+  useEffect(() => setupNotificationListeners(), []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    registerAndSavePushToken().catch((error) => console.error('[push] Token register/save failed', error));
+  }, [isAuthenticated, userId]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -40,6 +56,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NotificationManager />
       <StatusBar style="auto" />
       <Stack
         screenOptions={{

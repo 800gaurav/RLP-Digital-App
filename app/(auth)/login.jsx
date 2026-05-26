@@ -5,7 +5,7 @@ import {
   Image,
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { brandLogo } from '../../constants/brandAssets';
@@ -15,21 +15,22 @@ import { getFriendlyApiErrorMessage, setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function LoginScreen() {
+  const params = useLocalSearchParams();
   const queryClient = useQueryClient();
   const setUser = useAuthStore((state) => state.setUser);
   const setLoading = useAuthStore((state) => state.setLoading);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [identifier, setIdentifier] = useState(typeof params.identifier === 'string' ? params.identifier : '');
+  const [password, setPassword] = useState(typeof params.password === 'string' ? params.password : '');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
   function validate() {
     const newErrors = {};
-    if (!email.trim()) newErrors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) newErrors.email = 'Enter a valid email';
-    if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+    if (!identifier.trim()) newErrors.identifier = 'Mobile number or Voter Id required hai';
+    else if (!/^(?:\d{10}|[A-Z0-9]{6,20}|[^\s@]+@[^\s@]+\.[^\s@]+)$/i.test(identifier.trim())) newErrors.identifier = '10 digit mobile number, valid Voter ID ya admin email daliye';
+    if (!password) newErrors.password = 'Password required hai';
+    else if (password.length < 8) newErrors.password = 'Password kam se kam 8 characters ka hona chahiye';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -39,14 +40,14 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     setLoading(true);
     try {
-      const response = await login(email.trim().toLowerCase(), password);
+      const response = await login(identifier.trim(), password);
       await setTokens(response.tokens.accessToken, response.tokens.refreshToken);
       queryClient.clear();
       queryClient.setQueryData(['me'], response.user);
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
-      Alert.alert('Login Failed', getFriendlyApiErrorMessage(error, 'Login nahi ho paaya. Kripya dobara try karein.'));
+      Alert.alert('Login failed', getFriendlyApiErrorMessage(error, 'Login nahi ho paaya. Details check karke dobara try karein.'));
     } finally {
       setIsSubmitting(false);
       setLoading(false);
@@ -74,23 +75,23 @@ export default function LoginScreen() {
             <Text style={styles.cardTitle}>Login</Text>
             <Text style={styles.cardSubtitle}>Apne account mein login karein</Text>
 
-            {/* Email */}
+            {/* Mobile, Voter ID or admin email */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
-                <Ionicons name="mail-outline" size={20} color={Colors.rlpGreen} style={styles.inputIcon} />
+              <Text style={styles.inputLabel}>Mobile Number / Voter ID</Text>
+              <View style={[styles.inputWrapper, errors.identifier && styles.inputError]}>
+                <Ionicons name="call-outline" size={20} color={Colors.rlpGreen} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="member@example.com"
+                  placeholder="Mobile or Voter Id Enter Kare"
                   placeholderTextColor={Colors.outline}
-                  value={email}
-                  onChangeText={(t) => { setEmail(t); if (errors.email) setErrors((e) => ({ ...e, email: undefined })); }}
-                  keyboardType="email-address"
+                  value={identifier}
+                  onChangeText={(t) => { setIdentifier(t); if (errors.identifier) setErrors((e) => ({ ...e, identifier: undefined })); }}
+                  keyboardType="default"
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
               </View>
-              {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+              {errors.identifier ? <Text style={styles.errorText}>{errors.identifier}</Text> : null}
             </View>
 
             {/* Password */}

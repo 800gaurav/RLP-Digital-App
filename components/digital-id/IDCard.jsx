@@ -29,15 +29,17 @@ export default function IDCard({ user }) {
         </View>
 
         <View style={styles.topRow}>
-          <View>
+          <View style={styles.logoPartyRow}>
             <Text style={styles.kicker}>Membership ID</Text>
-            <View style={styles.logoBox}>
-              <Image source={brandBottle} style={styles.logoImage} resizeMode="contain" />
+            <View style={styles.logoPartyInner}>
+              <View style={styles.logoBox}>
+                <Image source={brandBottle} style={styles.logoImage} resizeMode="contain" />
+              </View>
+              <Text style={styles.logoPartyName} numberOfLines={1}>Rashtriya Loktantrik Party</Text>
             </View>
           </View>
           <View style={styles.verifiedWrap}>
             <Text style={styles.verifiedText}>VERIFIED MEMBER</Text>
-            <Text style={styles.unitText}>Rajasthan Unit</Text>
           </View>
         </View>
 
@@ -56,24 +58,28 @@ export default function IDCard({ user }) {
             <Text style={styles.voterLabel}>VOTER ID</Text>
             <Text style={styles.voterValue}>{user.voterId}</Text>
           </View>
-          <Text style={styles.location}>{user.district || user.city}, {user.state}</Text>
         </View>
 
         <View style={styles.footer}>
-          <View style={styles.metaBlock}>
-            <View>
-              <Text style={styles.smallLabel}>Issue Date</Text>
-              <Text style={styles.metaValue}>{issueDate}</Text>
-            </View>
-            <View>
-              <Text style={styles.smallLabel}>Validity</Text>
-              <Text style={styles.metaValueGreen}>Lifetime</Text>
-            </View>
+          <View style={styles.partyBlock}>
+            <Text style={styles.smallLabel}>Party</Text>
+            <Text style={styles.partyName}>Rashtriya Loktantrik Party</Text>
+            <Text style={styles.partyUnit}>Official Member Card</Text>
           </View>
-          <View style={styles.signatureBlock}>
-            <Text style={styles.smallLabel}>Digital Stamp</Text>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureText}>Authorized Signatory</Text>
+          <View style={styles.metaColumn}>
+            <View style={styles.locationPill}>
+              <Text style={styles.locationText}>{user.district || user.city}, {user.state}</Text>
+            </View>
+            <View style={styles.metaBlock}>
+              <View>
+                <Text style={styles.smallLabel}>Issue Date</Text>
+                <Text style={styles.metaValue}>{issueDate}</Text>
+              </View>
+              <View>
+                <Text style={styles.smallLabel}>Validity</Text>
+                <Text style={styles.metaValueGreen}>Lifetime</Text>
+              </View>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -84,7 +90,7 @@ export default function IDCard({ user }) {
 const styles = StyleSheet.create({
   shadowWrap: {
     width: '100%',
-    aspectRatio: 5 / 8,
+    aspectRatio: 5 / 8.4,
     borderRadius: 26,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 14 },
@@ -99,6 +105,8 @@ const styles = StyleSheet.create({
   watermarkImage: { width: 170, height: 170 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 },
   kicker: { fontFamily: FontFamily.bold, fontSize: 10, color: 'rgba(35,27,0,0.58)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 },
+  logoPartyRow: { flex: 1, paddingRight: 10 },
+  logoPartyInner: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   logoBox: {
     width: 54,
     height: 54,
@@ -112,9 +120,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logoImage: { width: 54, height: 54, opacity: 1 },
+  logoPartyName: { flex: 1, fontFamily: FontFamily.black, fontSize: 15, color: '#231B00' },
   verifiedWrap: { alignItems: 'flex-end' },
   verifiedText: { fontFamily: FontFamily.black, fontSize: 10, color: Colors.white, backgroundColor: Colors.rlpGreen, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, overflow: 'hidden', letterSpacing: 0.4 },
-  unitText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.72)', marginTop: 5 },
   identity: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 10, zIndex: 1 },
   photoGlow: { position: 'absolute', top: 18, width: 178, height: 178, borderRadius: 24, backgroundColor: 'rgba(15,123,62,0.18)' },
   photo: { width: 164, height: 164, borderRadius: 22, borderWidth: 4, borderColor: Colors.white, marginBottom: 18, backgroundColor: Colors.rlpGreen },
@@ -125,13 +133,15 @@ const styles = StyleSheet.create({
   voterPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.48)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
   voterLabel: { fontFamily: FontFamily.black, fontSize: 9, color: 'rgba(35,27,0,0.56)', letterSpacing: 0.8 },
   voterValue: { fontFamily: FontFamily.bold, fontSize: 12, color: '#231B00' },
-  location: { fontFamily: FontFamily.medium, fontSize: 13, color: 'rgba(35,27,0,0.76)', marginTop: 10 },
   footer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
-  signatureBlock: { flex: 1, paddingTop: 28, paddingLeft: 14, justifyContent: 'flex-end', alignItems: 'flex-end' },
   smallLabel: { fontFamily: FontFamily.black, fontSize: 8, color: 'rgba(35,27,0,0.48)', letterSpacing: 0.9, textTransform: 'uppercase' },
-  signatureLine: { width: 118, height: 1, backgroundColor: 'rgba(35,27,0,0.55)', marginTop: 18, marginBottom: 4 },
-  signatureText: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.7)' },
-  metaBlock: { width: 104, minHeight: 96, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.46)', padding: 10, justifyContent: 'space-between', marginTop: 14 },
+  partyBlock: { flex: 1, minHeight: 96, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.34)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', padding: 12, justifyContent: 'flex-end', alignItems: 'flex-start', marginRight: 12 },
+  partyName: { fontFamily: FontFamily.black, fontSize: 18, lineHeight: 21, color: '#231B00', textAlign: 'left', marginTop: 7 },
+  partyUnit: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.68)', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.4 },
+  metaColumn: { width: 112, alignItems: 'stretch' },
+  locationPill: { backgroundColor: 'rgba(255,255,255,0.42)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, marginBottom: 7 },
+  locationText: { fontFamily: FontFamily.bold, fontSize: 9, color: 'rgba(35,27,0,0.74)', textAlign: 'center' },
+  metaBlock: { minHeight: 96, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.46)', padding: 10, justifyContent: 'space-between', alignItems: 'flex-end' },
   metaValue: { fontFamily: FontFamily.bold, fontSize: 11, color: '#231B00', marginTop: 2 },
   metaValueGreen: { fontFamily: FontFamily.bold, fontSize: 11, color: Colors.rlpGreen, marginTop: 2 },
 });

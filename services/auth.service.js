@@ -26,8 +26,8 @@ export async function register(data) {
   return { ...response.data, user: normalizeUserMedia(response.data.user) };
 }
 
-export async function login(email, password) {
-  const response = await apiClient.post('/auth/login', { email, password });
+export async function login(identifier, password) {
+  const response = await apiClient.post('/auth/login', { identifier, password });
   return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
 }
 

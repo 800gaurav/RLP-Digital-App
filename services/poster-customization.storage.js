@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isValidRajasthanDistrict } from '../constants/rajasthanDistricts';
 
 function sanitizeValue(value) {
   return typeof value === 'string' ? value : '';
+}
+
+function sanitizeDistrict(value) {
+  const district = sanitizeValue(value).trim();
+  return isValidRajasthanDistrict(district) ? district : '';
 }
 
 function getPosterCustomizationUserKey(user) {
@@ -16,7 +22,7 @@ export function buildDefaultPosterCustomization(user) {
   return {
     name: user?.fullName || '',
     mobile: user?.phone || user?.mobile || '',
-    district: user?.district || user?.city || '',
+    district: sanitizeDistrict(user?.district || user?.city || ''),
     address: user?.address || '',
     facebookInstagram: '',
     themeId: 'classic-red',
@@ -36,7 +42,7 @@ export function normalizePosterCustomization(value, fallback = {}) {
   return {
     name: sanitizeValue(value?.name ?? fallback?.name),
     mobile: sanitizeValue(value?.mobile ?? fallback?.mobile),
-    district: sanitizeValue(value?.district ?? fallback?.district),
+    district: sanitizeDistrict(value?.district ?? fallback?.district),
     address: sanitizeValue(value?.address ?? fallback?.address),
     facebookInstagram: mergedSocial,
     themeId: sanitizeValue(value?.themeId ?? fallback?.themeId) || 'classic-red',

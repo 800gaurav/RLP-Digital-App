@@ -44,6 +44,21 @@ export async function updatePhoto(uri) {
   }
 }
 
+export async function removePhoto() {
+  try {
+    const response = await apiClient.delete('/users/me/photo');
+    return normalizeUserMedia(response.data.data);
+  } catch (error) {
+    if (error?.response?.status !== 404) throw error;
+    const response = await apiClient.post('/users/me/photo/remove');
+    return normalizeUserMedia(response.data.data);
+  }
+}
+
 export async function saveFcmToken(token) {
   await apiClient.post('/users/me/fcm-token', { token });
+}
+
+export async function savePushToken(pushToken) {
+  await apiClient.post('/users/push-token', { pushToken });
 }
