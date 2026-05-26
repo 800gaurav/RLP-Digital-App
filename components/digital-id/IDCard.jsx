@@ -35,7 +35,7 @@ export default function IDCard({ user }) {
               <View style={styles.logoBox}>
                 <Image source={brandBottle} style={styles.logoImage} resizeMode="contain" />
               </View>
-              <Text style={styles.logoPartyName} numberOfLines={1}>Rashtriya Loktantrik Party</Text>
+             
             </View>
           </View>
           <View style={styles.verifiedWrap}>
@@ -61,11 +61,18 @@ export default function IDCard({ user }) {
         </View>
 
         <View style={styles.footer}>
-          <View style={styles.partyBlock}>
-            <Text style={styles.smallLabel}>Party</Text>
+          <LinearGradient
+            colors={['#0B6B33', '#167B3E', '#D9A900']}
+            locations={[0, 0.58, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.partyBlock}
+          >
+            <View style={styles.partyGlow} />
+            <Text style={styles.partyLabel}>Party</Text>
             <Text style={styles.partyName}>Rashtriya Loktantrik Party</Text>
             <Text style={styles.partyUnit}>Official Member Card</Text>
-          </View>
+          </LinearGradient>
           <View style={styles.metaColumn}>
             <View style={styles.locationPill}>
               <Text style={styles.locationText}>{user.district || user.city}, {user.state}</Text>
@@ -90,7 +97,7 @@ export default function IDCard({ user }) {
 const styles = StyleSheet.create({
   shadowWrap: {
     width: '100%',
-    aspectRatio: 5 / 8.4,
+    aspectRatio: 4.9 / 8.6,
     borderRadius: 26,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 14 },
@@ -103,10 +110,10 @@ const styles = StyleSheet.create({
   patternDotTwo: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.16)', bottom: -58, right: -48 },
   watermark: { position: 'absolute', right: -16, top: 138, opacity: 0.055, transform: [{ rotate: '-12deg' }] },
   watermarkImage: { width: 170, height: 170 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, zIndex: 1 },
   kicker: { fontFamily: FontFamily.bold, fontSize: 10, color: 'rgba(35,27,0,0.58)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6 },
-  logoPartyRow: { flex: 1, paddingRight: 10 },
-  logoPartyInner: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  logoPartyRow: { flex: 1, minWidth: 0 },
+  logoPartyInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoBox: {
     width: 54,
     height: 54,
@@ -120,24 +127,25 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logoImage: { width: 54, height: 54, opacity: 1 },
-  logoPartyName: { flex: 1, fontFamily: FontFamily.black, fontSize: 15, color: '#231B00' },
-  verifiedWrap: { alignItems: 'flex-end' },
-  verifiedText: { fontFamily: FontFamily.black, fontSize: 10, color: Colors.white, backgroundColor: Colors.rlpGreen, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, overflow: 'hidden', letterSpacing: 0.4 },
-  identity: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 10, zIndex: 1 },
+  verifiedWrap: { alignItems: 'flex-end', flexShrink: 0 },
+  verifiedText: { fontFamily: FontFamily.black, fontSize: 8.5, color: Colors.white, backgroundColor: Colors.rlpGreen, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, overflow: 'hidden', letterSpacing: 0.25 },
+  identity: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 15, zIndex: 1 },
   photoGlow: { position: 'absolute', top: 18, width: 178, height: 178, borderRadius: 24, backgroundColor: 'rgba(15,123,62,0.18)' },
   photo: { width: 164, height: 164, borderRadius: 22, borderWidth: 4, borderColor: Colors.white, marginBottom: 18, backgroundColor: Colors.rlpGreen },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   photoInitial: { fontFamily: FontFamily.black, fontSize: 60, color: Colors.white },
   name: { fontFamily: FontFamily.black, fontSize: 25, lineHeight: 30, color: '#231B00', textAlign: 'center' },
   designation: { fontFamily: FontFamily.semiBold, fontSize: 12, color: 'rgba(35,27,0,0.72)', marginTop: 3, marginBottom: 10 },
-  voterPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.48)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+  voterPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.48)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 14, zIndex: 1 },
   voterLabel: { fontFamily: FontFamily.black, fontSize: 9, color: 'rgba(35,27,0,0.56)', letterSpacing: 0.8 },
   voterValue: { fontFamily: FontFamily.bold, fontSize: 12, color: '#231B00' },
   footer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(35,27,0,0.12)', paddingTop: 14, zIndex: 1 },
   smallLabel: { fontFamily: FontFamily.black, fontSize: 8, color: 'rgba(35,27,0,0.48)', letterSpacing: 0.9, textTransform: 'uppercase' },
-  partyBlock: { flex: 1, minHeight: 96, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.34)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', padding: 12, justifyContent: 'flex-end', alignItems: 'flex-start', marginRight: 12 },
-  partyName: { fontFamily: FontFamily.black, fontSize: 18, lineHeight: 21, color: '#231B00', textAlign: 'left', marginTop: 7 },
-  partyUnit: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(35,27,0,0.68)', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.4 },
+  partyBlock: { flex: 1, minHeight: 96, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', padding: 12, justifyContent: 'flex-end', alignItems: 'flex-start', marginRight: 12, overflow: 'hidden', shadowColor: '#0B5E2D', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 14, elevation: 5 },
+  partyGlow: { position: 'absolute', width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', top: -28, right: -20 },
+  partyLabel: { fontFamily: FontFamily.black, fontSize: 8, color: 'rgba(255,249,230,0.78)', letterSpacing: 1, textTransform: 'uppercase' },
+  partyName: { fontFamily: FontFamily.black, fontSize: 18, lineHeight: 21, color: Colors.white, textAlign: 'left', marginTop: 7, textShadowColor: 'rgba(0,0,0,0.18)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  partyUnit: { fontFamily: FontFamily.medium, fontSize: 9, color: 'rgba(255,244,204,0.92)', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
   metaColumn: { width: 112, alignItems: 'stretch' },
   locationPill: { backgroundColor: 'rgba(255,255,255,0.42)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5, marginBottom: 7 },
   locationText: { fontFamily: FontFamily.bold, fontSize: 9, color: 'rgba(35,27,0,0.74)', textAlign: 'center' },

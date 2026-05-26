@@ -218,6 +218,8 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
             {showPhotoMenu ? (
+              <Pressable style={styles.photoDismissArea} onPress={() => setShowPhotoMenu(false)} />
+                        ) : null}
               <View style={styles.photoMenu}>
                 <TouchableOpacity style={styles.photoMenuItem} onPress={pickPhotoFromCamera} activeOpacity={0.82}>
                   <View style={styles.photoMenuIcon}>
@@ -243,7 +245,7 @@ export default function RegisterScreen() {
                   <View style={[styles.photoMenuIcon, styles.photoMenuIconDanger]}>
                     <Ionicons name="trash-outline" size={19} color={Colors.error} />
                   </View>
-                  <Text style={[styles.photoMenuText, styles.photoMenuTextDanger]}>Remove Photo</Text>
+                  {/* <Text style={[styles.photoMenuText, styles.photoMenuTextDanger]}>Remove Photo</Text> */}
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -456,6 +458,7 @@ const styles = StyleSheet.create({
   backArrow: { fontSize: 24, color: Colors.white },
   headerTitle: { fontFamily: FontFamily.bold, fontSize: 20, color: Colors.white },
   card: { backgroundColor: Colors.white, borderRadius: 16, marginHorizontal: 16, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 6, zIndex: 2 },
+  photoDismissArea: { ...StyleSheet.absoluteFillObject, zIndex: 3 },
   photoSection: { alignItems: 'center', marginBottom: 24, position: 'relative', zIndex: 3 },
   photoCircle: { width: 112, height: 112, borderRadius: 56, backgroundColor: Colors.surfaceContainer, borderWidth: 2, borderColor: Colors.outlineVariant, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   photoImage: { width: 112, height: 112, borderRadius: 56 },
