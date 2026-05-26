@@ -1,10 +1,14 @@
 export interface PosterCustomization {
   name: string;
   mobile: string;
+  email: string;
   designation: string;
-  facebook: string;
-  instagram: string;
-  whatsapp: string;
+  district: string;
+  address: string;
+  facebookInstagram: string;
+  posterPhotoUri: string;
+  layoutId: string;
+  themeId: string;
 }
 
 export interface PosterExportPayload {

@@ -21,10 +21,14 @@ export function getPosterCustomizationStorageKey(posterId, user) {
 export function buildDefaultPosterCustomization(user) {
   return {
     name: user?.fullName || '',
-    mobile: user?.phone || user?.mobile || '',
+    mobile: user?.mobileNumber || user?.phone || user?.mobile || '',
+    email: user?.email || '',
+    designation: user?.designation || '',
     district: sanitizeDistrict(user?.district || user?.city || ''),
     address: user?.address || '',
     facebookInstagram: '',
+    posterPhotoUri: user?.profilePhoto || user?.profilePhotoUrl || user?.photoUrl || user?.imageUrl || '',
+    layoutId: 'profile-bar',
     themeId: 'classic-red',
   };
 }
@@ -42,9 +46,13 @@ export function normalizePosterCustomization(value, fallback = {}) {
   return {
     name: sanitizeValue(value?.name ?? fallback?.name),
     mobile: sanitizeValue(value?.mobile ?? fallback?.mobile),
+    email: sanitizeValue(value?.email ?? fallback?.email),
+    designation: sanitizeValue(value?.designation ?? fallback?.designation),
     district: sanitizeDistrict(value?.district ?? fallback?.district),
     address: sanitizeValue(value?.address ?? fallback?.address),
     facebookInstagram: mergedSocial,
+    posterPhotoUri: sanitizeValue(value?.posterPhotoUri ?? fallback?.posterPhotoUri),
+    layoutId: sanitizeValue(value?.layoutId ?? fallback?.layoutId) || 'profile-bar',
     themeId: sanitizeValue(value?.themeId ?? fallback?.themeId) || 'classic-red',
   };
 }
