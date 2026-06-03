@@ -3,17 +3,18 @@ import { normalizeUserMedia } from './media';
 import { createUploadFile, uploadForm } from './upload';
 
 export async function register(data) {
-  if (!data.profilePhoto) {
+  const hasUpload = Boolean(data.profilePhoto || data.voterIdPhoto);
+  if (!hasUpload) {
     const payload = Object.fromEntries(
       Object.entries(data).filter(([, value]) => value !== undefined && value !== ''),
     );
-    const response = await apiClient.post('/auth/register', payload);
+    const response = await apiClient.post('/auth/register', payload, { skipGlobalErrorLog: true });
     return { ...response.data.data, user: normalizeUserMedia(response.data.data.user) };
   }
 
   const formData = new FormData();
   Object.keys(data).forEach((key) => {
-    if (key === 'profilePhoto') return;
+    if (key === 'profilePhoto' || key === 'voterIdPhoto') return;
     if (data[key] !== undefined) formData.append(key, String(data[key]));
   });
   if (data.profilePhoto) {
@@ -22,8 +23,23 @@ export async function register(data) {
       fallbackName: 'profile-photo.jpg',
     }));
   }
+  if (data.voterIdPhoto) {
+    formData.append('voterIdPhoto', createUploadFile(data.voterIdPhoto, {
+      kind: 'image',
+      fallbackName: 'voter-id-photo.jpg',
+    }));
+  }
   const response = await uploadForm('/auth/register', formData, { method: 'POST', timeout: 180000 });
-  return { ...response.data, user: normalizeUserMedia(response.data.user) };
+  const payload = response.data || response;
+  return { ...payload, user: normalizeUserMedia(payload.user) };
+}
+
+export async function validateRegistration(data) {
+  const payload = Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined && value !== ''),
+  );
+  const response = await apiClient.post('/auth/validate-registration', payload, { skipGlobalErrorLog: true });
+  return response.data.data;
 }
 
 export async function login(identifier, password) {

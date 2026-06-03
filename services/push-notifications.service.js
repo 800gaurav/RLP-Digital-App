@@ -2,8 +2,8 @@ import { Alert, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
 import { savePushToken } from './user.service';
+import { safePush } from './navigation';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -40,7 +40,7 @@ function getRouteFromNotificationData(data = {}) {
 export function navigateFromNotificationData(data = {}) {
   const route = getRouteFromNotificationData(data);
   if (!route) return;
-  router.push(route);
+  safePush(route);
 }
 
 export async function registerForPushNotificationsAsync() {
@@ -117,7 +117,7 @@ export function setupNotificationListeners() {
     .catch((error) => console.error('[push] Last notification response read failed', error));
 
   return () => {
-    Notifications.removeNotificationSubscription(receivedSubscription);
-    Notifications.removeNotificationSubscription(responseSubscription);
+    receivedSubscription?.remove?.();
+    responseSubscription?.remove?.();
   };
 }

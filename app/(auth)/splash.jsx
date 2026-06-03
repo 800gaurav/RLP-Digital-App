@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
-import { router } from 'expo-router';
 import { brandSplash } from '../../constants/brandAssets';
 import { Colors } from '../../constants/colors';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../../services/api';
 import { refreshToken as refreshSession } from '../../services/auth.service';
+import { safeReplace } from '../../services/navigation';
 import {
   checkPermissions,
   requestAllPermissions,
@@ -69,7 +69,7 @@ export default function SplashScreen() {
 
         const token = await getAccessToken();
         if (token) {
-          router.replace('/(tabs)');
+          safeReplace('/(tabs)');
           return;
         }
 
@@ -87,7 +87,7 @@ export default function SplashScreen() {
 
             if (newAccessToken) {
               await setTokens(newAccessToken, nextRefreshToken);
-              router.replace('/(tabs)');
+              safeReplace('/(tabs)');
               return;
             }
           } catch (_error) {
@@ -95,9 +95,9 @@ export default function SplashScreen() {
           }
         }
 
-        router.replace('/(auth)/login');
+        safeReplace('/(auth)/login');
       } catch {
-        router.replace('/(auth)/login');
+        safeReplace('/(auth)/login');
       }
     }, 2500);
 

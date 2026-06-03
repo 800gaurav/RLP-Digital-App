@@ -1,9 +1,9 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from './config';
+import { safeReplace } from './navigation';
 
 const BASE_URL = API_BASE_URL;
 const ACCESS_TOKEN_KEY = 'accessToken';
@@ -85,6 +85,15 @@ export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat 
   }
 
   if (status === 403) {
+    if (error?.response?.data?.code === 'ACCOUNT_SUSPENDED') {
+      return 'Aapka account admin ne suspend kiya hai. Kripya support/admin se contact karein.';
+    }
+    if (error?.response?.data?.code === 'PAYMENT_UNDER_REVIEW') {
+      return 'Aapka payment admin review me hai. Approval ke baad login hoga.';
+    }
+    if (error?.response?.data?.code === 'PAYMENT_REJECTED') {
+      return 'Aapka payment admin ne reject kiya hai. Kripya support/admin se contact karein.';
+    }
     return 'Is action ke liye permission nahi hai.';
   }
 
@@ -93,10 +102,22 @@ export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat 
   }
 
   if (status === 409) {
-    return 'Is mobile number ya voter ID se account pehle se bana hua hai.';
+    if (/mobile/i.test(message)) return 'Ye mobile number pehle se registered hai.';
+    if (/voter/i.test(message)) return 'Ye Voter ID pehle se registered hai.';
+    if (/email/i.test(message)) return 'Ye email pehle se registered hai.';
+    return 'Ye details pehle se registered hain.';
   }
 
   if (status === 400 || status === 422) {
+    if (/^fullName:/i.test(message)) return 'Full name kam se kam 2 characters ka hona chahiye.';
+    if (/^mobileNumber:/i.test(message)) return 'Mobile number 10 digits ka hona chahiye.';
+    if (/^password:/i.test(message)) return 'Password kam se kam 8 characters ka hona chahiye.';
+    if (/^dob:/i.test(message)) return 'Date of birth sahi format me daliye.';
+    if (/^gender:/i.test(message)) return 'Gender list me se select kijiye.';
+    if (/^category:/i.test(message)) return 'Category list me se select kijiye.';
+    if (/^voterId:/i.test(message)) return 'Voter ID sahi format me daliye.';
+    if (/^district:/i.test(message)) return 'District required hai.';
+    if (/^vidhansabha:/i.test(message)) return 'Vidhansabha required hai.';
     if (/required/i.test(message)) return 'Required details missing hain. Form check karke dobara submit karein.';
     if (/email/i.test(message)) return 'Email format sahi nahi hai.';
     if (/password/i.test(message)) return 'Password details sahi nahi hain. Minimum 8 characters rakhein.';
@@ -214,7 +235,7 @@ apiClient.interceptors.response.use(
       || requestUrl.includes('/auth/forgot-password')
       || requestUrl.includes('/auth/verify-otp')
       || requestUrl.includes('/auth/reset-password');
-    if (status && status !== 401) {
+    if (status && status !== 401 && !originalRequest?.skipGlobalErrorLog) {
       logApiError(error, 'HTTP request failed');
     }
     if (!originalRequest || status !== 401 || originalRequest._retry || isAuthRoute) {
@@ -236,7 +257,7 @@ apiClient.interceptors.response.use(
       const refreshToken = await tokenStorage.getItem(REFRESH_TOKEN_KEY);
       if (!refreshToken) {
         await clearTokens();
-        router.replace('/(auth)/login');
+        safeReplace('/(auth)/login');
         return Promise.reject(error);
       }
       const response = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
@@ -253,7 +274,7 @@ apiClient.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null);
       await clearTokens();
-      router.replace('/(auth)/login');
+      safeReplace('/(auth)/login');
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

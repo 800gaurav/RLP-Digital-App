@@ -10,6 +10,12 @@ function sanitizeDistrict(value) {
   return isValidRajasthanDistrict(district) ? district : '';
 }
 
+function sanitizeLayoutId(value) {
+  const layoutId = sanitizeValue(value);
+  if (!layoutId || layoutId === 'profile-bar' || layoutId === 'poster-sash') return 'circle-card';
+  return layoutId;
+}
+
 function getPosterCustomizationUserKey(user) {
   return sanitizeValue(user?.id || user?._id || user?.voterId || user?.email).trim().toLowerCase() || 'guest';
 }
@@ -20,15 +26,14 @@ export function getPosterCustomizationStorageKey(posterId, user) {
 
 export function buildDefaultPosterCustomization(user) {
   return {
-    name: user?.fullName || '',
+    name: user?.fullNameHindi || user?.hindiName || user?.nameHi || user?.fullName || '',
     mobile: user?.mobileNumber || user?.phone || user?.mobile || '',
     email: user?.email || '',
-    designation: user?.designation || '',
+    designation: user?.designationHindi || user?.designationHi || user?.designation || '',
     district: sanitizeDistrict(user?.district || user?.city || ''),
-    address: user?.address || '',
     facebookInstagram: '',
     posterPhotoUri: user?.profilePhoto || user?.profilePhotoUrl || user?.photoUrl || user?.imageUrl || '',
-    layoutId: 'profile-bar',
+    layoutId: 'circle-card',
     themeId: 'classic-red',
   };
 }
@@ -49,10 +54,9 @@ export function normalizePosterCustomization(value, fallback = {}) {
     email: sanitizeValue(value?.email ?? fallback?.email),
     designation: sanitizeValue(value?.designation ?? fallback?.designation),
     district: sanitizeDistrict(value?.district ?? fallback?.district),
-    address: sanitizeValue(value?.address ?? fallback?.address),
     facebookInstagram: mergedSocial,
     posterPhotoUri: sanitizeValue(value?.posterPhotoUri ?? fallback?.posterPhotoUri),
-    layoutId: sanitizeValue(value?.layoutId ?? fallback?.layoutId) || 'profile-bar',
+    layoutId: sanitizeLayoutId(value?.layoutId ?? fallback?.layoutId),
     themeId: sanitizeValue(value?.themeId ?? fallback?.themeId) || 'classic-red',
   };
 }

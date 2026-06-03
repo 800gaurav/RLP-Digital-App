@@ -9,8 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { getFriendlyErrorMessage } from '../../services/api';
+import { safeReplace } from '../../services/navigation';
 import { usePermissions } from '../hooks/usePermissions';
 
 const BENEFITS = [
@@ -29,11 +29,11 @@ export default function PermissionScreen() {
     try {
       const snapshot = await requestAllPermissions();
       if (snapshot.granted) {
-        router.replace('/(auth)/splash');
+        safeReplace('/(auth)/splash');
         return;
       }
 
-      router.replace('/permissions/recovery');
+      safeReplace('/permissions/recovery');
     } catch (error: any) {
       Alert.alert(
         'Permission request failed',

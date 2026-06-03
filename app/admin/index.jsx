@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getFriendlyApiErrorMessage, logApiError } from '../../services/api';
 import {
   createBroadcastNotification,
   deleteNotification,
   getAdminContentSummary,
   getAdminOverview,
+  getAdminUsers,
   getNotifications,
+  updateAdminUserPermissions,
+  updateAdminPaymentStatus,
   updateNotification,
   updatePosterPlanSettings,
 } from '../../services/admin.service';
@@ -21,17 +25,17 @@ import { createPadadhikari, deletePadadhikari, getPadadhikari, updatePadadhikari
 import { createTrainingVideo, deleteTrainingVideo, getTrainingVideos, updateTrainingVideo } from '../../services/videos.service';
 import { createReel, deleteReel, getReels, updateReel } from '../../services/reels.service';
 import SearchableDistrictSelect from '../../components/ui/SearchableDistrictSelect';
+import SearchableVidhansabhaSelect from '../../components/ui/SearchableVidhansabhaSelect';
 import { Colors } from '../../constants/colors';
 import { isValidRajasthanDistrict } from '../../constants/rajasthanDistricts';
 import { FontFamily } from '../../constants/typography';
 
 const TABS = [
   { key: 'overview', label: 'Home', icon: 'grid' },
-  { key: 'notify', label: 'Notify', icon: 'notifications' },
+  { key: 'users', label: 'Users', icon: 'people' },
   { key: 'officials', label: 'Leaders', icon: 'ribbon' },
   { key: 'media', label: 'Media', icon: 'play-circle' },
   { key: 'posters', label: 'Posters', icon: 'color-palette' },
-  { key: 'history', label: 'History', icon: 'time' },
 ];
 
 const HISTORY_CATEGORIES = [
@@ -56,9 +60,36 @@ const emptyTemplate = { name: '', category: 'Rally', imageUri: '', isPremium: tr
 const emptyNotification = { title: 'RLP Suchna', body: '', priority: true };
 const HISTORY_PAGE_SIZE = 8;
 const DEFAULT_POSTER_CATEGORIES = ['Rally', 'Tyohaar', 'Shubhkamnayen', 'Leadership', 'Election 2024'];
+const MEMBER_CATEGORY_OPTIONS = [
+  { label: 'All Categories', value: '' },
+  { label: 'General', value: 'General' },
+  { label: 'OBC', value: 'OBC' },
+  { label: 'SC', value: 'SC' },
+  { label: 'ST', value: 'ST' },
+  { label: 'Other', value: 'Other' },
+];
 
 function getOfficialLevelLabel(rank) {
   return OFFICIAL_LEVELS.find((item) => item.value === rank)?.label || 'District';
+}
+
+function formatDateLabel(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDobLabel(value) {
+  if (!value) return '';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(value))) {
+    const [day, month, year] = String(value).split('/');
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  return formatDateLabel(value);
 }
 
 function Field({ label, value, onChangeText, placeholder, multiline, keyboardType, maxLength }) {
@@ -180,6 +211,12 @@ export default function AdminDashboardScreen() {
   const [historySearch, setHistorySearch] = useState('');
   const [historyDate, setHistoryDate] = useState('');
   const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberDistrict, setMemberDistrict] = useState('');
+  const [memberVidhansabha, setMemberVidhansabha] = useState('');
+  const [memberCategory, setMemberCategory] = useState('');
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [memberPreviewImage, setMemberPreviewImage] = useState('');
 
   const canAccessAdmin =
     user?.role === 'admin'
@@ -205,6 +242,27 @@ export default function AdminDashboardScreen() {
   const { data: reels = [], refetch: refetchReels } = useQuery({ queryKey: ['admin-reels'], queryFn: getReels, enabled: canAccessAdmin });
   const { data: trainings = [], refetch: refetchTrainings } = useQuery({ queryKey: ['admin-training'], queryFn: getTrainingVideos, enabled: canAccessAdmin });
   const { data: templates = [], refetch: refetchTemplates } = useQuery({ queryKey: ['admin-templates'], queryFn: () => getTemplates(), enabled: canAccessAdmin });
+  const memberSubscriptionStatus = tab === 'subscribers' ? 'active' : '';
+  const memberPaymentStatus = tab === 'payments' ? 'under_review' : '';
+  const memberAccountStatus = tab === 'suspended' ? 'suspended' : '';
+  const {
+    data: members = [],
+    refetch: refetchMembers,
+    isFetching: membersLoading,
+  } = useQuery({
+    queryKey: ['admin-users', memberSubscriptionStatus, memberPaymentStatus, memberAccountStatus, memberSearch, memberDistrict, memberVidhansabha, memberCategory],
+    queryFn: () => getAdminUsers({
+      q: memberSearch,
+      district: memberDistrict,
+      vidhansabha: memberVidhansabha,
+      category: memberCategory,
+      subscriptionStatus: memberSubscriptionStatus,
+      paymentStatus: memberPaymentStatus,
+      accountStatus: memberAccountStatus,
+    }),
+    enabled: canAccessAdmin && (tab === 'users' || tab === 'subscribers' || tab === 'payments' || tab === 'suspended'),
+    placeholderData: (previousData) => previousData,
+  });
   const posterCategories = content?.posterCategories?.length ? content.posterCategories : DEFAULT_POSTER_CATEGORIES;
 
   useEffect(() => {
@@ -320,6 +378,10 @@ export default function AdminDashboardScreen() {
     setRefreshing(true);
     const tasks = {
       overview: [refetchOverview, refetchContent, refetchNotifications, refetchOfficials, refetchReels, refetchTrainings, refetchTemplates],
+      users: [refetchMembers],
+      subscribers: [refetchMembers],
+      payments: [refetchMembers, refetchOverview],
+      suspended: [refetchMembers, refetchOverview],
       notify: [refetchNotifications],
       officials: [refetchOfficials, refetchContent, refetchOverview],
       media: [refetchReels, refetchTrainings, refetchOverview],
@@ -552,6 +614,187 @@ export default function AdminDashboardScreen() {
     if (config) confirmDelete(config.label, config.action);
   }
 
+  function clearMemberFilters() {
+    setMemberSearch('');
+    setMemberDistrict('');
+    setMemberVidhansabha('');
+    setMemberCategory('');
+  }
+
+  async function updatePaymentReview(member, paymentStatus) {
+    if (!member?.id) return;
+    const title = paymentStatus === 'approved' ? 'Approve Payment' : 'Reject Payment';
+    const message = paymentStatus === 'approved'
+      ? `${member.fullName || 'User'} ka payment approve karna hai?`
+      : `${member.fullName || 'User'} ka payment reject karna hai?`;
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: paymentStatus === 'approved' ? 'Approve' : 'Reject',
+        style: paymentStatus === 'approved' ? 'default' : 'destructive',
+        onPress: async () => {
+          setSaving(`payment-${member.id}`);
+          try {
+            const updated = await updateAdminPaymentStatus(member.id, paymentStatus);
+            setSelectedMember((current) => (current?.id === member.id ? updated : current));
+            await Promise.all([refetchMembers(), refetchOverview()]);
+            Alert.alert('Done', paymentStatus === 'approved' ? 'Payment approve ho gaya.' : 'Payment reject ho gaya.');
+          } catch (error) {
+            logApiError(error, 'Admin payment review failed');
+            Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Payment status update nahi hua.'));
+          } finally {
+            setSaving('');
+          }
+        },
+      },
+    ]);
+  }
+
+  async function updateAccountStatus(member, accountStatus) {
+    if (!member?.id) return;
+    const suspending = accountStatus === 'suspended';
+    Alert.alert(
+      suspending ? 'Suspend Account' : 'Activate Account',
+      `${member.fullName || 'User'} ka account ${suspending ? 'suspend' : 'active'} karna hai?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: suspending ? 'Suspend' : 'Activate',
+          style: suspending ? 'destructive' : 'default',
+          onPress: async () => {
+            setSaving(`account-${member.id}`);
+            try {
+              const updated = await updateAdminUserPermissions(member.id, { accountStatus });
+              setSelectedMember((current) => (current?.id === member.id ? updated : current));
+              await Promise.all([refetchMembers(), refetchOverview()]);
+              Alert.alert('Done', suspending ? 'Account suspend ho gaya.' : 'Account active ho gaya.');
+            } catch (error) {
+              logApiError(error, 'Admin account status update failed');
+              Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Account status update nahi hua.'));
+            } finally {
+              setSaving('');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function renderMemberDirectory(listTitle, emptyLabel) {
+    const hasActiveFilters = Boolean(memberSearch || memberDistrict || memberVidhansabha || memberCategory);
+
+    return (
+      <View style={styles.section}>
+        <View style={styles.historyHeader}>
+          <View>
+            <Text style={styles.historyTitle}>{listTitle}</Text>
+            <Text style={styles.historyMeta}>{members.length} records</Text>
+          </View>
+          {hasActiveFilters ? (
+            <Pressable style={styles.clearFilterButton} onPress={clearMemberFilters}>
+              <Text style={styles.clearFilterText}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.filterCard}>
+          <View style={styles.searchField}>
+            <Ionicons name="search" size={17} color={Colors.onSurfaceVariant} />
+            <TextInput
+              style={styles.searchInput}
+              value={memberSearch}
+              onChangeText={setMemberSearch}
+              placeholder="Search by name, mobile, voter ID"
+              placeholderTextColor={Colors.outline}
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>District</Text>
+            <SearchableDistrictSelect
+              value={memberDistrict}
+              onSelect={(value) => {
+                setMemberDistrict(value);
+                setMemberVidhansabha('');
+              }}
+              placeholder="Filter by district"
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Vidhansabha</Text>
+            <SearchableVidhansabhaSelect
+              district={memberDistrict}
+              value={memberVidhansabha}
+              onSelect={setMemberVidhansabha}
+            />
+          </View>
+          <SelectField
+            label="Category"
+            value={memberCategory}
+            options={MEMBER_CATEGORY_OPTIONS}
+            onSelect={setMemberCategory}
+            placeholder="Filter by category"
+          />
+        </View>
+
+        {membersLoading ? (
+          <View style={styles.emptyHistory}>
+            <ActivityIndicator size="small" color={Colors.rlpGreen} />
+            <Text style={styles.emptyHistoryText}>Loading members...</Text>
+          </View>
+        ) : null}
+
+        {!membersLoading && members.length === 0 ? (
+          <View style={styles.emptyHistory}>
+            <Ionicons name="people-outline" size={28} color={Colors.outline} />
+            <Text style={styles.emptyHistoryText}>{emptyLabel}</Text>
+          </View>
+        ) : null}
+
+        {!membersLoading && members.length > 0 ? (
+          <View style={styles.tableCard}>
+            <ScrollView horizontal showsHorizontalScrollIndicator>
+                <View style={styles.memberTable}>
+                <View style={[styles.memberTableRow, styles.memberTableHeader]}>
+                  <Text style={[styles.memberTableHeaderText, styles.colAction]}>Action</Text>
+                  <Text style={[styles.memberTableHeaderText, styles.colName]}>Name</Text>
+                  <Text style={[styles.memberTableHeaderText, styles.colMobile]}>Mobile Number</Text>
+                  <Text style={[styles.memberTableHeaderText, styles.colDistrict]}>District</Text>
+                  <Text style={[styles.memberTableHeaderText, styles.colVidhansabha]}>Vidhansabha</Text>
+                  <Text style={[styles.memberTableHeaderText, styles.colCategory]}>Category</Text>
+                </View>
+                {members.map((item, index) => (
+                  <View key={item.id} style={[styles.memberTableRow, index % 2 === 0 ? styles.memberTableRowAlt : null]}>
+                    <View style={styles.colAction}>
+                      <Pressable style={styles.detailButton} onPress={() => setSelectedMember(item)}>
+                        <Ionicons name="eye" size={14} color={Colors.white} />
+                        <Text style={styles.detailButtonText}>Detail</Text>
+                      </Pressable>
+                      {tab === 'payments' ? (
+                        <View style={styles.paymentMiniActions}>
+                          <Pressable style={[styles.paymentMiniButton, styles.paymentApproveMini]} onPress={() => updatePaymentReview(item, 'approved')}>
+                            <Ionicons name="checkmark" size={13} color={Colors.white} />
+                          </Pressable>
+                          <Pressable style={[styles.paymentMiniButton, styles.paymentRejectMini]} onPress={() => updatePaymentReview(item, 'rejected')}>
+                            <Ionicons name="close" size={13} color={Colors.white} />
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.memberTableCell, styles.colName]} numberOfLines={2}>{item.fullName || '-'}</Text>
+                    <Text style={[styles.memberTableCell, styles.colMobile]} numberOfLines={1}>{item.mobileNumber || '-'}</Text>
+                    <Text style={[styles.memberTableCell, styles.colDistrict]} numberOfLines={2}>{item.district || '-'}</Text>
+                    <Text style={[styles.memberTableCell, styles.colVidhansabha]} numberOfLines={2}>{item.vidhansabha || '-'}</Text>
+                    <Text style={[styles.memberTableCell, styles.colCategory]} numberOfLines={1}>{item.category || '-'}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   function renderRecentHistory(types, title) {
     const typeList = Array.isArray(types) ? types : [types];
     const recentItems = historyItems.filter((item) => typeList.includes(item.historyType)).slice(0, 5);
@@ -645,10 +888,15 @@ export default function AdminDashboardScreen() {
             </View>
             <Text style={styles.headerTitle}>RLP Admin</Text>
           </View>
-          <Pressable style={styles.exitButton} onPress={() => router.replace('/(tabs)')}>
-            <Ionicons name="exit-outline" size={18} color="#9F1F17" />
-            <Text style={styles.exitText}>Exit</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.historyHeaderButton} onPress={() => setTab('history')}>
+              <Ionicons name="time-outline" size={18} color={Colors.rlpGreenDark} />
+            </Pressable>
+            <Pressable style={styles.exitButton} onPress={() => router.replace('/(tabs)')}>
+              <Ionicons name="exit-outline" size={18} color="#9F1F17" />
+              <Text style={styles.exitText}>Exit</Text>
+            </Pressable>
+          </View>
         </View>
         <View style={styles.content}>
         {tab === 'overview' && (
@@ -658,16 +906,27 @@ export default function AdminDashboardScreen() {
               <Text style={styles.heroTitle}>Users, content, notifications aur party updates ek jagah se manage karein.</Text>
             </View>
             <View style={styles.statsGrid}>
-              <StatCard icon="people" label="Users" value={pickCount(stats.users, stats.totalUsers)} />
-              <StatCard icon="id-card" label="Subscribers" value={pickCount(stats.activeSubscriptions)} />
+              <StatCard icon="people" label="Users" value={pickCount(stats.users, stats.totalUsers)} onPress={() => setTab('users')} />
+              <StatCard icon="id-card" label="Subscribers" value={pickCount(stats.activeSubscriptions, stats.activeSubscribers, stats.subscribers)} onPress={() => setTab('subscribers')} />
+              <StatCard icon="card" label="Payments" value={pickCount(stats.pendingPayments, stats.paymentRequests)} onPress={() => setTab('payments')} />
+              <StatCard icon="ban" label="Suspended" value={pickCount(stats.suspendedUsers)} onPress={() => setTab('suspended')} />
               <StatCard icon="ribbon" label="Padadhikari" value={pickCount(officials.length, content?.officials, stats.totalPadadhikari)} onPress={() => setTab('officials')} />
               <StatCard icon="play-circle" label="Reels/Status" value={pickCount(reels.length, content?.reels, stats.reels)} onPress={() => setTab('media')} />
               <StatCard icon="videocam" label="Training Videos" value={pickCount(trainings.length, content?.trainingVideos, stats.trainingVideos)} onPress={() => setTab('media')} />
               <StatCard icon="notifications" label="Notifications" value={pickCount(notifications.length, content?.notifications, stats.notifications)} onPress={() => setTab('notify')} />
+              <StatCard icon="color-palette" label="Posters" value={pickCount(templates.length, content?.templates, stats.templates)} onPress={() => setTab('posters')} />
               <StatCard icon="time" label="All History" value={historyItems.length} onPress={() => setTab('history')} />
             </View>
           </>
         )}
+
+        {tab === 'users' && renderMemberDirectory('All Users', 'No users found')}
+
+        {tab === 'subscribers' && renderMemberDirectory('Subscribers', 'No subscribers found')}
+
+        {tab === 'payments' && renderMemberDirectory('Payment Requests', 'No pending payment requests')}
+
+        {tab === 'suspended' && renderMemberDirectory('Suspended Accounts', 'No suspended accounts')}
 
         {tab === 'notify' && (
           <View style={styles.section}>
@@ -983,6 +1242,127 @@ export default function AdminDashboardScreen() {
         )}
         </View>
       </ScrollView>
+      <Modal visible={Boolean(selectedMember)} transparent animationType="fade" onRequestClose={() => setSelectedMember(null)}>
+        <View style={styles.memberModalBackdrop}>
+          <View style={styles.memberModalCard}>
+            <View style={styles.memberModalHeader}>
+              <Text style={styles.memberModalTitle}>User Detail</Text>
+              <Pressable style={styles.memberModalClose} onPress={() => setSelectedMember(null)}>
+                <Ionicons name="close" size={18} color={Colors.white} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <LinearGradient
+                colors={['#0A5E31', '#117A45', '#D7B326']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.memberHeroSection}
+              >
+                <View style={styles.memberHeroTopRow}>
+                  <View style={styles.memberHeroPhotoRow}>
+                    <View style={styles.memberHeroAvatarShell}>
+                      {selectedMember?.profilePhoto || selectedMember?.profileThumbnailUrl ? (
+                        <Image
+                          source={{ uri: selectedMember.profilePhoto || selectedMember.profileThumbnailUrl }}
+                          style={styles.memberHeroAvatar}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.memberHeroAvatarFallback}>
+                          <Ionicons name="person" size={52} color={Colors.white} />
+                        </View>
+                      )}
+                    </View>
+                    <Pressable
+                      style={styles.memberHeroDocumentCard}
+                      onPress={() => {
+                        const imageUri = selectedMember?.voterIdPhoto || selectedMember?.voterIdThumbnailUrl;
+                        if (imageUri) setMemberPreviewImage(imageUri);
+                      }}
+                    >
+                      <Text style={styles.memberHeroDocumentLabel}>Voter ID</Text>
+                      {selectedMember?.voterIdPhoto || selectedMember?.voterIdThumbnailUrl ? (
+                        <Image
+                          source={{ uri: selectedMember.voterIdPhoto || selectedMember.voterIdThumbnailUrl }}
+                          style={styles.memberHeroDocumentImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.memberHeroDocumentEmpty}>
+                          <Ionicons name="card-outline" size={26} color="rgba(255,255,255,0.82)" />
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+                <Text style={styles.memberHeroName}>{selectedMember?.fullName || 'Unnamed User'}</Text>
+                <Text style={styles.memberHeroId}>{selectedMember?.voterId || 'Voter ID not available'}</Text>
+                <Text style={[styles.memberHeroStatus, selectedMember?.subscriptionStatus === 'active' ? styles.memberHeroStatusActive : styles.memberHeroStatusInactive]}>
+                  {selectedMember?.subscriptionStatus === 'active' ? 'Subscription Active' : 'Subscription Inactive'}
+                </Text>
+                <Text style={[styles.memberHeroStatus, selectedMember?.paymentStatus === 'approved' ? styles.memberHeroStatusActive : styles.memberHeroStatusInactive]}>
+                  Payment: {selectedMember?.paymentStatus === 'under_review' ? 'Under Review' : (selectedMember?.paymentStatus || 'approved')}
+                </Text>
+                <Text style={[styles.memberHeroStatus, selectedMember?.accountStatus === 'suspended' ? styles.memberHeroStatusInactive : styles.memberHeroStatusActive]}>
+                  Account: {selectedMember?.accountStatus === 'suspended' ? 'Suspended' : 'Active'}
+                </Text>
+              </LinearGradient>
+                <View style={styles.memberBodyRow}>
+                <View style={styles.memberPrimaryCard}>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Full Name</Text><Text style={styles.memberDetailValue}>{selectedMember?.fullName || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Mobile Number</Text><Text style={styles.memberDetailValue}>{selectedMember?.mobileNumber || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Voter ID</Text><Text style={styles.memberDetailValue}>{selectedMember?.voterId || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Gender</Text><Text style={styles.memberDetailValue}>{selectedMember?.gender || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Date of Birth</Text><Text style={styles.memberDetailValue}>{formatDobLabel(selectedMember?.dob) || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Category</Text><Text style={styles.memberDetailValue}>{selectedMember?.category || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Payment Amount</Text><Text style={styles.memberDetailValue}>{selectedMember?.paymentAmount ? `Rs ${selectedMember.paymentAmount}` : '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Payment Status</Text><Text style={styles.memberDetailValue}>{selectedMember?.paymentStatus || 'approved'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Account Status</Text><Text style={styles.memberDetailValue}>{selectedMember?.accountStatus === 'suspended' ? 'Suspended' : 'Active'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>District</Text><Text style={styles.memberDetailValue}>{selectedMember?.district || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Vidhansabha</Text><Text style={styles.memberDetailValue}>{selectedMember?.vidhansabha || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Created On</Text><Text style={styles.memberDetailValue}>{formatDateLabel(selectedMember?.createdAt) || '-'}</Text></View>
+                  <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Updated On</Text><Text style={styles.memberDetailValue}>{formatDateLabel(selectedMember?.updatedAt) || '-'}</Text></View>
+                  {selectedMember?.paymentStatus === 'under_review' ? (
+                    <View style={styles.paymentReviewActions}>
+                      <Pressable style={[styles.paymentReviewButton, styles.paymentApproveButton]} onPress={() => updatePaymentReview(selectedMember, 'approved')}>
+                        <Ionicons name="checkmark-circle" size={17} color={Colors.white} />
+                        <Text style={styles.paymentReviewButtonText}>Accept Payment</Text>
+                      </Pressable>
+                      <Pressable style={[styles.paymentReviewButton, styles.paymentRejectButton]} onPress={() => updatePaymentReview(selectedMember, 'rejected')}>
+                        <Ionicons name="close-circle" size={17} color={Colors.white} />
+                        <Text style={styles.paymentReviewButtonText}>Reject Payment</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  <View style={styles.paymentReviewActions}>
+                    {selectedMember?.accountStatus === 'suspended' ? (
+                      <Pressable style={[styles.paymentReviewButton, styles.paymentApproveButton]} onPress={() => updateAccountStatus(selectedMember, 'active')} disabled={saving === `account-${selectedMember?.id}`}>
+                        <Ionicons name="checkmark-circle" size={17} color={Colors.white} />
+                        <Text style={styles.paymentReviewButtonText}>Activate Account</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable style={[styles.paymentReviewButton, styles.paymentRejectButton]} onPress={() => updateAccountStatus(selectedMember, 'suspended')} disabled={saving === `account-${selectedMember?.id}`}>
+                        <Ionicons name="ban" size={17} color={Colors.white} />
+                        <Text style={styles.paymentReviewButtonText}>Suspend Account</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      <Modal visible={Boolean(memberPreviewImage)} transparent animationType="fade" onRequestClose={() => setMemberPreviewImage('')}>
+        <View style={styles.previewBackdrop}>
+          <Pressable style={styles.previewCloseButton} onPress={() => setMemberPreviewImage('')}>
+            <Ionicons name="close" size={20} color={Colors.white} />
+          </Pressable>
+          {memberPreviewImage ? (
+            <Image source={{ uri: memberPreviewImage }} style={styles.previewImage} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
       <View style={styles.bottomNav}>
         {TABS.map((item) => (
           <Pressable key={item.key} style={[styles.navItem, tab === item.key && styles.navItemActive]} onPress={() => setTab(item.key)}>
@@ -1002,6 +1382,8 @@ const styles = StyleSheet.create({
   iconButton: { width: 44, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerBrand: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   adminIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.rlpYellow, borderWidth: 1, borderColor: 'rgba(0,110,46,0.18)' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  historyHeaderButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.rlpYellow, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,110,46,0.18)' },
   exitButton: { minWidth: 68, height: 36, borderRadius: 18, backgroundColor: '#FDE7E4', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E7A09A' },
   exitText: { fontFamily: FontFamily.bold, fontSize: 12, color: '#9F1F17' },
   headerTitle: { fontFamily: FontFamily.bold, fontSize: 18, color: Colors.white },
@@ -1097,6 +1479,26 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: FontFamily.regular, fontSize: 13, color: Colors.onSurface, paddingVertical: 8 },
   emptyHistory: { backgroundColor: Colors.white, borderRadius: 12, padding: 22, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.outlineVariant },
   emptyHistoryText: { fontFamily: FontFamily.medium, fontSize: 13, color: Colors.onSurfaceVariant },
+  tableCard: { backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1, borderColor: Colors.outlineVariant, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  memberTable: { minWidth: 760 },
+  memberTableHeader: { backgroundColor: Colors.rlpGreenDark },
+  memberTableRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant, minHeight: 58 },
+  memberTableRowAlt: { backgroundColor: '#FAFCFB' },
+  memberTableHeaderText: { fontFamily: FontFamily.bold, fontSize: 12, color: Colors.white, paddingHorizontal: 10, paddingVertical: 14, borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.18)' },
+  memberTableCell: { fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurface, paddingHorizontal: 10, paddingVertical: 12, borderRightWidth: 1, borderRightColor: Colors.outlineVariant },
+  colAction: { width: 98, paddingHorizontal: 8, justifyContent: 'center' },
+  colName: { width: 168 },
+  colMobile: { width: 130 },
+  colDistrict: { width: 105 },
+  colVidhansabha: { width: 160 },
+  colCategory: { width: 96 },
+  colUtr: { width: 130 },
+  detailButton: { minHeight: 34, borderRadius: 9, backgroundColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
+  detailButtonText: { fontFamily: FontFamily.bold, fontSize: 11, color: Colors.white },
+  paymentMiniActions: { flexDirection: 'row', gap: 5, marginTop: 6 },
+  paymentMiniButton: { width: 28, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  paymentApproveMini: { backgroundColor: Colors.rlpGreen },
+  paymentRejectMini: { backgroundColor: Colors.error },
   notificationHistoryCard: { backgroundColor: Colors.white, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.outlineVariant, gap: 8 },
   notificationHistoryTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   notificationIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center' },
@@ -1112,12 +1514,59 @@ const styles = StyleSheet.create({
   notificationDate: { fontFamily: FontFamily.bold, fontSize: 10, color: Colors.onSurfaceVariant },
   loadMoreButton: { minHeight: 42, borderRadius: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
   loadMoreText: { fontFamily: FontFamily.bold, fontSize: 13, color: Colors.rlpGreen },
+  memberModalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, alignItems: 'center', justifyContent: 'center' },
+  memberModalCard: { width: '100%', maxWidth: 680, height: '98%', backgroundColor: '#F5F7F4', borderRadius: 26, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)', shadowColor: '#102818', shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 10 }, elevation: 10 },
+  memberModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 },
+  memberModalTitle: { fontFamily: FontFamily.black, fontSize: 19, color: Colors.onSurface },
+  memberModalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.error, shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  memberHeroSection: { borderRadius: 24, padding: 18, marginBottom: 16, overflow: 'hidden', shadowColor: '#0D4F2B', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  memberHeroTopRow: { width: '100%', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  memberHeroPhotoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  memberHeroAvatarShell: { width: 104, height: 104, borderRadius: 52, padding: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
+  memberHeroAvatar: { width: '100%', height: '100%', borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.35)' },
+  memberHeroAvatarFallback: { width: '100%', height: '100%', borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  memberHeroDocumentCard: { width: 142, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 18, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  memberHeroDocumentLabel: { fontFamily: FontFamily.bold, fontSize: 10, color: Colors.white, marginBottom: 6, textAlign: 'center', letterSpacing: 0.5 },
+  memberHeroDocumentImage: { width: '100%', height: 102, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.28)' },
+  memberHeroDocumentEmpty: { width: '100%', height: 102, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  memberHeroName: { fontFamily: FontFamily.black, fontSize: 24, color: Colors.white, marginTop: 14, textAlign: 'center' },
+  memberHeroId: { fontFamily: FontFamily.semiBold, fontSize: 13, color: 'rgba(255,255,255,0.84)', marginTop: 6, textAlign: 'center', letterSpacing: 0.4 },
+  memberHeroStatus: { marginTop: 10, alignSelf: 'center', fontFamily: FontFamily.bold, fontSize: 11, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, overflow: 'hidden' },
+  memberHeroStatusActive: { color: Colors.rlpGreenDark, backgroundColor: '#E8F6EC' },
+  memberHeroStatusInactive: { color: '#9F1F17', backgroundColor: '#FDE7E4' },
+  memberBodyRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' },
+  memberPrimaryCard: { flex: 1, minWidth: 280, gap: 10 },
+  memberMediaCard: { flex: 1, minWidth: 180, backgroundColor: Colors.surfaceContainerLow, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.outlineVariant },
+  memberMediaLabel: { fontFamily: FontFamily.bold, fontSize: 12, color: Colors.onSurface, marginBottom: 8 },
+  memberPhotoAction: { borderRadius: 12, overflow: 'hidden' },
+  memberMediaImage: { width: '100%', height: 150, borderRadius: 10, backgroundColor: Colors.surfaceContainerHigh },
+  memberMediaEmpty: { width: '100%', height: 150, borderRadius: 10, backgroundColor: Colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  memberMediaEmptyText: { fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant },
+  memberPhotoHint: { fontFamily: FontFamily.medium, fontSize: 11, color: Colors.onSurfaceVariant, textAlign: 'center', marginTop: 8 },
+  memberDetailGrid: { gap: 10, paddingBottom: 4 },
+  memberDetailItem: { backgroundColor: Colors.white, borderRadius: 16, padding: 13, borderWidth: 1, borderColor: 'rgba(0,110,46,0.08)', shadowColor: '#153D26', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  memberDetailLabel: { fontFamily: FontFamily.bold, fontSize: 10, color: Colors.onSurfaceVariant, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.8 },
+  memberDetailValue: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface, lineHeight: 19 },
+  paymentReviewActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  paymentReviewButton: { flex: 1, minWidth: 130, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  paymentApproveButton: { backgroundColor: Colors.rlpGreen },
+  paymentRejectButton: { backgroundColor: Colors.error },
+  paymentReviewButtonText: { fontFamily: FontFamily.bold, fontSize: 12, color: Colors.white },
+  subscriptionActiveText: { color: Colors.rlpGreen },
+  subscriptionInactiveText: { color: Colors.error },
+  previewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', alignItems: 'center', justifyContent: 'center', padding: 18 },
+  previewCloseButton: { position: 'absolute', top: 42, right: 18, width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  previewImage: { width: '100%', height: '82%' },
   userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.outlineVariant },
   userInitial: { width: 42, height: 42, borderRadius: 21, backgroundColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   userInitialText: { fontFamily: FontFamily.bold, fontSize: 16, color: Colors.white },
   userBody: { flex: 1 },
   userName: { fontFamily: FontFamily.semiBold, fontSize: 14, color: Colors.onSurface },
   userMeta: { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.onSurfaceVariant, marginTop: 2 },
+  memberBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
+  memberBadge: { fontFamily: FontFamily.bold, fontSize: 10, color: Colors.rlpGreen, backgroundColor: Colors.primaryContainer, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, overflow: 'hidden' },
+  memberBadgeActive: { color: Colors.white, backgroundColor: Colors.rlpGreen },
+  memberBadgeMuted: { color: Colors.onSurfaceVariant, backgroundColor: Colors.surfaceContainerLow },
   switchGroup: { alignItems: 'center', gap: 2 },
   switchLabel: { fontFamily: FontFamily.medium, fontSize: 10, color: Colors.onSurfaceVariant },
   listCard: { backgroundColor: Colors.white, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.outlineVariant, gap: 6 },
@@ -1132,9 +1581,9 @@ const styles = StyleSheet.create({
   lockedState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   lockedTitle: { fontFamily: FontFamily.bold, fontSize: 20, color: Colors.white, marginTop: 14, marginBottom: 8 },
   lockedText: { fontFamily: FontFamily.regular, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.82)', textAlign: 'center' },
-  bottomNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.outlineVariant, paddingTop: 8, paddingBottom: 10, paddingHorizontal: 6, elevation: 10 },
-  navItem: { flex: 1, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 12, gap: 3, marginHorizontal: 2 },
+  bottomNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.outlineVariant, paddingTop: 8, paddingBottom: 10, paddingHorizontal: 4, elevation: 10 },
+  navItem: { width: '20%', minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 10, gap: 2, paddingVertical: 6 },
   navItemActive: { backgroundColor: Colors.primaryContainer },
-  navText: { fontFamily: FontFamily.medium, fontSize: 9, color: Colors.onSurfaceVariant },
+  navText: { fontFamily: FontFamily.medium, fontSize: 10, color: Colors.onSurfaceVariant },
   navTextActive: { fontFamily: FontFamily.bold, color: Colors.rlpGreen },
 });

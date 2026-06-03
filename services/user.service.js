@@ -16,14 +16,8 @@ export async function getMe() {
 }
 
 export async function updateMe(data) {
-  try {
-    const response = await apiClient.put('/users/me', data);
-    return normalizeUserMedia(response.data.data);
-  } catch (error) {
-    // TODO: Wire profile updates to the production backend and remove local merge fallback.
-    if (!error.response) return { ...demoUser, ...data };
-    throw error;
-  }
+  const response = await apiClient.put('/users/me', data);
+  return normalizeUserMedia(response.data.data);
 }
 
 export async function updatePhoto(uri) {
@@ -32,16 +26,18 @@ export async function updatePhoto(uri) {
     kind: 'image',
     fallbackName: `profile-${Date.now()}.jpg`,
   }));
-  try {
-    const response = await uploadForm('/users/me/photo', formData, { method: 'PUT' });
-    return normalizeUserMedia(response.data);
-  } catch (error) {
-    if (!error.response) {
-      const currentUser = useAuthStore.getState().user || demoUser;
-      return normalizeUserMedia({ ...currentUser, profilePhoto: uri });
-    }
-    throw error;
-  }
+  const response = await uploadForm('/users/me/photo', formData, { method: 'PUT' });
+  return normalizeUserMedia(response.data?.data || response.data || response);
+}
+
+export async function updateVoterIdPhoto(uri) {
+  const formData = new FormData();
+  formData.append('voterIdPhoto', createUploadFile(uri, {
+    kind: 'image',
+    fallbackName: `voter-id-${Date.now()}.jpg`,
+  }));
+  const response = await uploadForm('/users/me/voter-id-photo', formData, { method: 'PUT' });
+  return normalizeUserMedia(response.data?.data || response.data || response);
 }
 
 export async function removePhoto() {

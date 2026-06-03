@@ -41,7 +41,12 @@ export function getUserProfilePhoto(user) {
 
 export function normalizeUserMedia(user) {
   if (!user) return user;
-  return { ...user, profilePhoto: getUserProfilePhoto(user) };
+  return {
+    ...user,
+    profilePhoto: getUserProfilePhoto(user),
+    voterIdPhoto: resolveMediaUrl(user.voterIdPhoto),
+    voterIdThumbnailUrl: resolveMediaUrl(user.voterIdThumbnailUrl),
+  };
 }
 
 export function normalizeMediaItem(item) {

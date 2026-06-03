@@ -1,9 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/colors';
-import { FontFamily } from '../../constants/typography';
+import React from 'react';
 import { RAJASTHAN_DISTRICTS } from '../../constants/rajasthanDistricts';
+import SearchableOptionSelect from './SearchableOptionSelect';
 
 export default function SearchableDistrictSelect({
   value,
@@ -11,126 +8,20 @@ export default function SearchableDistrictSelect({
   placeholder = 'Search and choose district',
   error = false,
   disabled = false,
+  open,
+  onOpenChange,
 }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState(value || '');
-
-  useEffect(() => {
-    setQuery(value || '');
-  }, [value]);
-
-  const filteredOptions = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return normalizedQuery
-      ? RAJASTHAN_DISTRICTS.filter((option) => option.toLowerCase().includes(normalizedQuery))
-      : RAJASTHAN_DISTRICTS;
-  }, [query]);
-
   return (
-    <View>
-      <View style={[styles.control, error && styles.controlError, disabled && styles.controlDisabled]}>
-        <TextInput
-          style={styles.input}
-          value={query}
-          onChangeText={(text) => {
-            setQuery(text);
-            if (!disabled) setOpen(true);
-          }}
-          onFocus={() => {
-            if (!disabled) setOpen(true);
-          }}
-          editable={!disabled}
-          placeholder={placeholder}
-          placeholderTextColor={Colors.outline}
-          autoCorrect={false}
-        />
-        <Pressable
-          onPress={() => {
-            if (disabled) return;
-            setOpen((current) => {
-              const nextOpen = !current;
-              if (!nextOpen) setQuery(value || '');
-              return nextOpen;
-            });
-          }}
-          hitSlop={8}
-        >
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.onSurfaceVariant} />
-        </Pressable>
-      </View>
-
-      {open ? (
-        <View style={styles.menu}>
-          <ScrollView nestedScrollEnabled style={styles.list} keyboardShouldPersistTaps="handled">
-            {filteredOptions.length === 0 ? (
-              <View style={styles.option}>
-                <Text style={styles.optionText}>No district found</Text>
-              </View>
-            ) : filteredOptions.map((option) => {
-              const active = option === value;
-              return (
-                <Pressable
-                  key={option}
-                  style={[styles.option, active && styles.optionActive]}
-                  onPress={() => {
-                    onSelect(option);
-                    setQuery(option);
-                    setOpen(false);
-                  }}
-                >
-                  <Text style={[styles.optionText, active && styles.optionTextActive]}>{option}</Text>
-                  {active ? <Ionicons name="checkmark" size={16} color={Colors.rlpGreen} /> : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-    </View>
+    <SearchableOptionSelect
+      value={value}
+      onSelect={onSelect}
+      options={RAJASTHAN_DISTRICTS}
+      placeholder={placeholder}
+      error={error}
+      disabled={disabled}
+      emptyText="No district found"
+      open={open}
+      onOpenChange={onOpenChange}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  control: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 46,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    backgroundColor: Colors.surfaceContainerLow,
-  },
-  controlError: { borderColor: Colors.error },
-  controlDisabled: { opacity: 0.9, backgroundColor: Colors.surfaceContainer },
-  input: {
-    flex: 1,
-    fontFamily: FontFamily.regular,
-    fontSize: 14,
-    color: Colors.onSurface,
-    paddingVertical: 11,
-  },
-  menu: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-    borderRadius: 12,
-    backgroundColor: Colors.white,
-    overflow: 'hidden',
-  },
-  list: { maxHeight: 180 },
-  option: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.outlineVariant,
-  },
-  optionActive: { backgroundColor: Colors.primaryContainer },
-  optionText: { fontFamily: FontFamily.regular, fontSize: 13, color: Colors.onSurface },
-  optionTextActive: { fontFamily: FontFamily.semiBold, color: Colors.rlpGreen },
-});

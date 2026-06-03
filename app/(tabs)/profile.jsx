@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,26 +7,36 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/auth.store';
-import { removePhoto, updateMe, updatePhoto } from '../../services/user.service';
+import { getMe, removePhoto, updateMe, updatePhoto, updateVoterIdPhoto } from '../../services/user.service';
 import { getFriendlyApiErrorMessage } from '../../services/api';
+import { safeReplace } from '../../services/navigation';
 import Avatar from '../../components/ui/Avatar';
 import SearchableDistrictSelect from '../../components/ui/SearchableDistrictSelect';
+import SearchableVidhansabhaSelect from '../../components/ui/SearchableVidhansabhaSelect';
 import { Colors } from '../../constants/colors';
 import { isValidRajasthanDistrict } from '../../constants/rajasthanDistricts';
 import { FontFamily } from '../../constants/typography';
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const CATEGORY_OPTIONS = ['General', 'OBC', 'SC', 'ST', 'Other'];
 
-function formatIsoDate(date) {
+function formatApiDate(date) {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-function parseIsoDate(value) {
+function formatDisplayDate(date) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear());
+  return `${day}-${month}-${year}`;
+}
+
+function parseApiDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
-  const [yearText, monthText, dayText] = value.split('-');
+  const [yearText, monthText, dayText] = String(value).split('-');
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
@@ -42,21 +52,42 @@ function parseIsoDate(value) {
   return parsed;
 }
 
-export default function ProfileScreen() {
-  const { user, setUser, logout } = useAuthStore();
-  const queryClient = useQueryClient();
-  const [profileForm, setProfileForm] = useState({
+function parseDisplayDate(value) {
+  if (!/^\d{2}-\d{2}-\d{4}$/.test(String(value || ''))) return null;
+  const [dayText, monthText, yearText] = String(value).split('-');
+  const day = Number(dayText);
+  const month = Number(monthText);
+  const year = Number(yearText);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(parsed.getTime())
+    || parsed.getFullYear() !== year
+    || parsed.getMonth() !== month - 1
+    || parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+function getInitialProfileForm(user) {
+  const parsedDob = parseApiDate(user?.dob ? String(user.dob).slice(0, 10) : '');
+  return {
     fullName: user?.fullName ?? '',
     mobileNumber: user?.mobileNumber ?? '',
     voterId: user?.voterId ?? '',
-    dob: user?.dob ? String(user.dob).slice(0, 10) : '',
+    dob: parsedDob ? formatDisplayDate(parsedDob) : '',
     gender: user?.gender ?? '',
-    address: user?.address ?? '',
-    state: 'Rajasthan',
+    category: user?.category ?? '',
     district: user?.district ?? '',
-    city: user?.city ?? '',
-    pincode: user?.pincode ?? '',
-  });
+    vidhansabha: user?.vidhansabha ?? '',
+  };
+}
+
+export default function ProfileScreen() {
+  const { user, setUser, logout } = useAuthStore();
+  const queryClient = useQueryClient();
+  const [profileForm, setProfileForm] = useState(getInitialProfileForm(user));
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -68,12 +99,19 @@ export default function ProfileScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  const [savingVoterIdPhoto, setSavingVoterIdPhoto] = useState(false);
+  const [previewImageUri, setPreviewImageUri] = useState('');
+  const [enlargedImageUri, setEnlargedImageUri] = useState('');
+  const [activeSelect, setActiveSelect] = useState('');
 
-  if (!user) return null;
+  useEffect(() => {
+    if (user) setProfileForm(getInitialProfileForm(user));
+  }, [user]);
 
-  const selectedDob = parseIsoDate(profileForm.dob) || new Date(2000, 0, 1);
+  const selectedDob = parseDisplayDate(profileForm.dob) || new Date(2000, 0, 1);
   const maxDob = new Date();
 
   const handlePickPhoto = async () => {
@@ -121,6 +159,42 @@ export default function ProfileScreen() {
     finally { setSavingPhoto(false); }
   };
 
+  const pickVoterIdPhoto = async (mode) => {
+    try {
+      const permission = mode === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', mode === 'camera'
+          ? 'Camera permission allow kijiye.'
+          : 'Gallery permission allow kijiye.');
+        return;
+      }
+      const result = mode === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
+      if (result.canceled || !result.assets[0]) return;
+      setSavingVoterIdPhoto(true);
+      await updateVoterIdPhoto(result.assets[0].uri);
+      const refreshed = await getMe();
+      setUser(refreshed);
+      queryClient.setQueryData(['me'], refreshed);
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+    } catch (error) {
+      Alert.alert('Voter ID photo update failed', getFriendlyApiErrorMessage(error, 'Voter ID photo update nahi ho paayi.'));
+    } finally {
+      setSavingVoterIdPhoto(false);
+    }
+  };
+
+  const handleChangeVoterIdPhoto = () => {
+    Alert.alert('Voter ID Photo', 'Photo update kahan se karni hai?', [
+      { text: 'Camera', onPress: () => pickVoterIdPhoto('camera') },
+      { text: 'Gallery', onPress: () => pickVoterIdPhoto('gallery') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const updateProfileField = (key, value) => {
     setProfileForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -128,44 +202,51 @@ export default function ProfileScreen() {
   const handleDobChange = (_event, selectedDate) => {
     if (Platform.OS === 'android') setShowDobPicker(false);
     if (!selectedDate) return;
-    updateProfileField('dob', formatIsoDate(selectedDate));
+    updateProfileField('dob', formatDisplayDate(selectedDate));
+  };
+
+  const toggleGenderPicker = () => {
+    const next = !showGenderPicker;
+    setShowGenderPicker(next);
+    setShowCategoryPicker(false);
+    setShowDobPicker(false);
+    setActiveSelect(next ? 'gender' : '');
+  };
+
+  const toggleCategoryPicker = () => {
+    const next = !showCategoryPicker;
+    setShowCategoryPicker(next);
+    setShowGenderPicker(false);
+    setShowDobPicker(false);
+    setActiveSelect(next ? 'category' : '');
   };
 
   const handleSaveProfile = async () => {
     if (!profileForm.fullName.trim()) { Alert.alert('Validation', 'Name blank nahi ho sakta.'); return; }
     if (!profileForm.mobileNumber.trim()) { Alert.alert('Validation', 'Mobile number required hai.'); return; }
     if (!/^\d{10}$/.test(profileForm.mobileNumber.trim())) { Alert.alert('Validation', 'Mobile number 10 digits ka hona chahiye.'); return; }
-    if (profileForm.dob && !parseIsoDate(profileForm.dob)) { Alert.alert('Validation', 'Date of birth calendar se select kijiye.'); return; }
+    const parsedDob = profileForm.dob ? parseDisplayDate(profileForm.dob) : null;
+    if (profileForm.dob && !parsedDob) { Alert.alert('Validation', 'Date of birth calendar se select kijiye.'); return; }
     if (profileForm.gender && !GENDER_OPTIONS.includes(profileForm.gender)) { Alert.alert('Validation', 'Gender list me se select kijiye.'); return; }
+    if (profileForm.category && !CATEGORY_OPTIONS.includes(profileForm.category)) { Alert.alert('Validation', 'Category list me se select kijiye.'); return; }
     if (!isValidRajasthanDistrict(profileForm.district)) { Alert.alert('Validation', 'District list me se valid Rajasthan district select kijiye.'); return; }
-    if (profileForm.pincode && !/^\d{6}$/.test(profileForm.pincode.trim())) { Alert.alert('Validation', 'Pincode 6 digits ka hona chahiye.'); return; }
+    if (!profileForm.vidhansabha.trim()) { Alert.alert('Validation', 'Vidhansabha select kijiye.'); return; }
     setSavingProfile(true);
     try {
-      const updated = await updateMe({
+      await updateMe({
         fullName: profileForm.fullName.trim(),
         mobileNumber: profileForm.mobileNumber.trim(),
-        dob: profileForm.dob || undefined,
+        voterId: profileForm.voterId.trim().toUpperCase(),
+        dob: parsedDob ? formatApiDate(parsedDob) : undefined,
         gender: profileForm.gender.trim() || undefined,
-        address: profileForm.address.trim(),
-        state: 'Rajasthan',
+        category: profileForm.category || undefined,
         district: profileForm.district.trim(),
-        city: profileForm.city.trim(),
-        pincode: profileForm.pincode.trim(),
+        vidhansabha: profileForm.vidhansabha.trim(),
       });
-      setUser(updated);
-      queryClient.setQueryData(['me'], updated);
-      setProfileForm({
-        fullName: updated?.fullName ?? '',
-        mobileNumber: updated?.mobileNumber ?? '',
-        voterId: updated?.voterId ?? profileForm.voterId,
-        dob: updated?.dob ? String(updated.dob).slice(0, 10) : '',
-        gender: updated?.gender ?? '',
-        address: updated?.address ?? '',
-        state: 'Rajasthan',
-        district: updated?.district ?? '',
-        city: updated?.city ?? '',
-        pincode: updated?.pincode ?? '',
-      });
+      const refreshed = await getMe();
+      setUser(refreshed);
+      queryClient.setQueryData(['me'], refreshed);
+      setProfileForm(getInitialProfileForm(refreshed));
       Alert.alert('Saved', 'Profile update ho gaya.');
     }
     catch (error) { Alert.alert('Profile update failed', getFriendlyApiErrorMessage(error, 'Profile update nahi ho paaya. Details check karke dobara try karein.')); }
@@ -185,14 +266,16 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { setLoggingOut(true); await logout(); router.replace('/(auth)/login'); } },
+      { text: 'Logout', style: 'destructive', onPress: async () => { setLoggingOut(true); queryClient.clear(); await logout(); safeReplace('/(auth)/login'); } },
     ]);
   };
 
   const canAccessAdmin =
-    user.role === 'admin'
-    || user.isAdmin
-    || user.email === 'admin@rlp.com';
+    user?.role === 'admin'
+    || user?.isAdmin
+    || user?.email === 'admin@rlp.com';
+
+  if (!user) return null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -251,15 +334,9 @@ export default function ProfileScreen() {
           <Text style={styles.userEmail}>{user.mobileNumber || 'Mobile number not added'}</Text>
           <View style={styles.userMetaRow}>
             <View style={styles.userMetaPill}>
-              <Text style={styles.userMetaLabel}>User ID</Text>
+              <Text style={styles.userMetaLabel}>Voter ID</Text>
               <Text style={styles.userMetaValue}>{user.voterId}</Text>
             </View>
-            {!!user.city && (
-              <View style={styles.userMetaPill}>
-                <Text style={styles.userMetaLabel}>City</Text>
-                <Text style={styles.userMetaValue}>{user.city}</Text>
-              </View>
-            )}
           </View>
         </View>
 
@@ -279,13 +356,46 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Details</Text>
           <View style={styles.card}>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Voter ID</Text>
+              <TextInput
+                style={styles.input}
+                value={profileForm.voterId}
+                onChangeText={(value) => updateProfileField('voterId', value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                placeholder="Enter voter ID"
+                placeholderTextColor={Colors.onSurfaceVariant}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Voter ID Photo</Text>
+              <Pressable
+                style={styles.voterIdCard}
+                onPress={handleChangeVoterIdPhoto}
+                onLongPress={() => {
+                  if (user.voterIdPhoto) setPreviewImageUri(user.voterIdPhoto);
+                }}
+              >
+                {user.voterIdPhoto ? (
+                  <Image source={{ uri: user.voterIdPhoto }} style={styles.voterIdImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.voterIdEmpty}>
+                    <Ionicons name="card-outline" size={28} color={Colors.onSurfaceVariant} />
+                    <Text style={styles.voterIdEmptyText}>Tap to add photo</Text>
+                  </View>
+                )}
+                {savingVoterIdPhoto ? (
+                  <View style={styles.voterIdLoadingOverlay}>
+                    <ActivityIndicator size="small" color={Colors.rlpGreen} />
+                  </View>
+                ) : null}
+              </Pressable>
+              {user.voterIdPhoto ? <Text style={styles.voterIdHint}>Tap to change photo. Long press to preview.</Text> : null}
+            </View>
             {[
               { label: 'Full Name', value: profileForm.fullName, onChange: (value) => updateProfileField('fullName', value), placeholder: 'Enter your full name' },
               { label: 'Mobile Number', value: profileForm.mobileNumber, onChange: (value) => updateProfileField('mobileNumber', value.replace(/[^0-9]/g, '')), placeholder: '10-digit mobile number', keyboardType: 'phone-pad' },
-              { label: 'User ID (Voter ID)', value: profileForm.voterId, onChange: () => {}, placeholder: 'Voter ID', editable: false },
-              { label: 'Address', value: profileForm.address, onChange: (value) => updateProfileField('address', value), placeholder: 'Enter your address', multiline: true },
-              { label: 'City', value: profileForm.city, onChange: (value) => updateProfileField('city', value), placeholder: 'Enter your city' },
-              { label: 'Pincode', value: profileForm.pincode, onChange: (value) => updateProfileField('pincode', value.replace(/[^0-9]/g, '')), placeholder: '6-digit pincode', keyboardType: 'number-pad' },
             ].map(({ label, value, onChange, multiline, editable = true, ...props }) => (
               <View key={label} style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>{label}</Text>
@@ -305,7 +415,13 @@ export default function ProfileScreen() {
               <Text style={styles.fieldLabel}>Date of Birth</Text>
               <Pressable
                 style={({ pressed }) => [styles.selectInput, pressed && { opacity: 0.85 }]}
-                onPress={() => setShowDobPicker((prev) => !prev)}
+                onPress={() => {
+                  const next = !showDobPicker;
+                  setShowDobPicker(next);
+                  setShowGenderPicker(false);
+                  setShowCategoryPicker(false);
+                  setActiveSelect('');
+                }}
                 accessibilityRole="button"
                 accessibilityLabel="Select date of birth"
               >
@@ -335,7 +451,7 @@ export default function ProfileScreen() {
               <Text style={styles.fieldLabel}>Gender</Text>
               <Pressable
                 style={({ pressed }) => [styles.selectInput, pressed && { opacity: 0.85 }]}
-                onPress={() => setShowGenderPicker((prev) => !prev)}
+                onPress={toggleGenderPicker}
                 accessibilityRole="button"
                 accessibilityLabel="Select gender"
               >
@@ -357,6 +473,7 @@ export default function ProfileScreen() {
                       onPress={() => {
                         updateProfileField('gender', gender);
                         setShowGenderPicker(false);
+                        setActiveSelect('');
                       }}
                     >
                       <Text style={[styles.dropdownItemText, profileForm.gender === gender && styles.dropdownItemTextSelected]}>{gender}</Text>
@@ -367,21 +484,80 @@ export default function ProfileScreen() {
               ) : null}
             </View>
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>State</Text>
-              <TextInput
-                style={[styles.input, styles.inputDisabled]}
-                value={profileForm.state}
-                editable={false}
-                placeholderTextColor={Colors.onSurfaceVariant}
-                accessibilityLabel="State"
-              />
+              <Text style={styles.fieldLabel}>Category</Text>
+              <Pressable
+                style={({ pressed }) => [styles.selectInput, pressed && { opacity: 0.85 }]}
+                onPress={toggleCategoryPicker}
+                accessibilityRole="button"
+                accessibilityLabel="Select category"
+              >
+                <Text style={[styles.selectInputText, !profileForm.category && styles.placeholderText]}>
+                  {profileForm.category || 'Select category'}
+                </Text>
+                <Ionicons name={showCategoryPicker ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.onSurfaceVariant} />
+              </Pressable>
+              {showCategoryPicker ? (
+                <View style={styles.dropdownList}>
+                  {CATEGORY_OPTIONS.map((category) => (
+                    <Pressable
+                      key={category}
+                      style={({ pressed }) => [
+                        styles.dropdownItem,
+                        profileForm.category === category && styles.dropdownItemSelected,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                      onPress={() => {
+                        updateProfileField('category', category);
+                        setShowCategoryPicker(false);
+                        setActiveSelect('');
+                      }}
+                    >
+                      <Text style={[styles.dropdownItemText, profileForm.category === category && styles.dropdownItemTextSelected]}>{category}</Text>
+                      {profileForm.category === category ? <Ionicons name="checkmark" size={18} color={Colors.rlpGreen} /> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
             </View>
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>District</Text>
               <SearchableDistrictSelect
                 value={profileForm.district}
-                onSelect={(value) => updateProfileField('district', value)}
+                onSelect={(value) => {
+                  updateProfileField('district', value);
+                  updateProfileField('vidhansabha', '');
+                }}
                 placeholder="Search and choose Rajasthan district"
+                open={activeSelect === 'district'}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setActiveSelect('district');
+                    setShowGenderPicker(false);
+                    setShowCategoryPicker(false);
+                    setShowDobPicker(false);
+                  } else if (activeSelect === 'district') {
+                    setActiveSelect('');
+                  }
+                }}
+              />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Vidhansabha</Text>
+              <SearchableVidhansabhaSelect
+                district={profileForm.district}
+                value={profileForm.vidhansabha}
+                onSelect={(value) => updateProfileField('vidhansabha', value)}
+                open={activeSelect === 'vidhansabha'}
+                onOpenChange={(open) => {
+                  if (open) {
+                    setActiveSelect('vidhansabha');
+                    setShowGenderPicker(false);
+                    setShowCategoryPicker(false);
+                    setShowDobPicker(false);
+                  } else if (activeSelect === 'vidhansabha') {
+                    setActiveSelect('');
+                  }
+                }}
               />
             </View>
             <Pressable style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.85 }]} onPress={handleSaveProfile} disabled={savingProfile} accessibilityRole="button">
@@ -427,6 +603,31 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal visible={Boolean(previewImageUri)} transparent animationType="fade" onRequestClose={() => setPreviewImageUri('')}>
+        <Pressable style={styles.previewBackdrop} onPress={() => setPreviewImageUri('')}>
+          <View style={styles.previewCard}>
+            <Pressable style={styles.previewCloseButton} onPress={() => setPreviewImageUri('')}>
+              <Ionicons name="close" size={20} color={Colors.white} />
+            </Pressable>
+            {previewImageUri ? <Image source={{ uri: previewImageUri }} style={styles.previewImageLarge} resizeMode="contain" /> : null}
+            {previewImageUri ? (
+              <Pressable style={styles.enlargeButton} onPress={() => setEnlargedImageUri(previewImageUri)}>
+                <Ionicons name="expand-outline" size={18} color={Colors.white} />
+                <Text style={styles.enlargeButtonText}>Enlarge</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </Pressable>
+      </Modal>
+      <Modal visible={Boolean(enlargedImageUri)} transparent animationType="fade" onRequestClose={() => setEnlargedImageUri('')}>
+        <View style={styles.enlargedBackdrop}>
+          <Pressable style={styles.enlargedCloseButton} onPress={() => setEnlargedImageUri('')}>
+            <Ionicons name="close" size={22} color={Colors.white} />
+          </Pressable>
+          {enlargedImageUri ? <Image source={{ uri: enlargedImageUri }} style={styles.enlargedImage} resizeMode="contain" /> : null}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -459,6 +660,12 @@ const styles = StyleSheet.create({
   section: { marginTop: 20, paddingHorizontal: 16 },
   sectionTitle: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
   card: { backgroundColor: Colors.white, borderRadius: 14, padding: 16, gap: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  voterIdCard: { width: '100%', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.outlineVariant, backgroundColor: Colors.surfaceContainerLow, position: 'relative' },
+  voterIdImage: { width: '100%', height: 168, backgroundColor: Colors.surfaceContainerLow },
+  voterIdEmpty: { width: '100%', height: 168, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  voterIdEmptyText: { fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant },
+  voterIdHint: { fontFamily: FontFamily.regular, fontSize: 11, color: Colors.onSurfaceVariant },
+  voterIdLoadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.72)', alignItems: 'center', justifyContent: 'center' },
   fieldGroup: { gap: 6 },
   fieldLabel: { fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant },
   input: { backgroundColor: Colors.surfaceContainerLow, borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontFamily: FontFamily.regular, fontSize: 15, color: Colors.onSurface },
@@ -500,4 +707,38 @@ const styles = StyleSheet.create({
   adminTitle: { fontFamily: FontFamily.bold, fontSize: 15, color: Colors.onSurface, marginBottom: 4 },
   adminSubtitle: { fontFamily: FontFamily.regular, fontSize: 12, color: Colors.onSurfaceVariant, lineHeight: 17, maxWidth: 260 },
   adminArrow: { fontFamily: FontFamily.bold, fontSize: 24, color: Colors.rlpGreen },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  previewCard: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    padding: 12,
+  },
+  previewImageLarge: { width: '100%', height: 420, borderRadius: 12, backgroundColor: Colors.surfaceContainerLow },
+  enlargeButton: { marginTop: 10, minHeight: 42, borderRadius: 12, backgroundColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 },
+  enlargeButtonText: { fontFamily: FontFamily.bold, fontSize: 14, color: Colors.white },
+  enlargedBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 14 },
+  enlargedCloseButton: { position: 'absolute', top: 42, right: 18, zIndex: 2, width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center' },
+  enlargedImage: { width: '100%', height: '88%' },
+  previewCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

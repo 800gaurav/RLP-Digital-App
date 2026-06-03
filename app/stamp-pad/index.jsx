@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { checkAccess, getDrafts, saveDraft } from '../../services/stamppad.service';
+import { safeReplace } from '../../services/navigation';
 import DocumentEditor from '../../components/stamp-pad/DocumentEditor';
 import AppBottomNav from '../../components/navigation/AppBottomNav';
 import { Colors } from '../../constants/colors';
@@ -25,7 +26,7 @@ export default function StampPadScreen() {
 
   useEffect(() => {
     if (!accessLoading && accessData && !accessData.hasAccess) {
-      router.replace('/stamp-pad/access-restricted');
+      safeReplace('/stamp-pad/access-restricted');
     }
   }, [accessData, accessLoading]);
 

@@ -4,7 +4,6 @@ export interface PosterCustomization {
   email: string;
   designation: string;
   district: string;
-  address: string;
   facebookInstagram: string;
   posterPhotoUri: string;
   layoutId: string;

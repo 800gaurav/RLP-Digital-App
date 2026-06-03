@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import { demoAdminStats, demoOfficials, demoSubscription, demoUser } from './mockData';
+import { normalizeUserMedia } from './media';
 
 export async function getAdminOverview() {
   try {
@@ -12,10 +13,13 @@ export async function getAdminOverview() {
   }
 }
 
-export async function getAdminUsers() {
+export async function getAdminUsers(params = {}) {
   try {
-    const response = await apiClient.get('/admin/users');
-    return response.data.data;
+    const query = Object.fromEntries(
+      Object.entries(params).filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== ''),
+    );
+    const response = await apiClient.get('/admin/users', { params: query });
+    return response.data.data.map(normalizeUserMedia);
   } catch (error) {
     // TODO: Add paginated admin user management endpoint with permission flags.
     if (!error.response) {
@@ -23,7 +27,7 @@ export async function getAdminUsers() {
         demoUser,
         { ...demoUser, id: 'rlp-member-2', fullName: 'Sita Devi', email: 'sita@example.com', role: 'user', stampPadAccess: false, subscriptionStatus: 'inactive' },
         { ...demoUser, id: 'rlp-member-3', fullName: 'Ramesh Kumar', email: 'ramesh@example.com', role: 'user', stampPadAccess: true, subscriptionStatus: 'active' },
-      ];
+      ].map(normalizeUserMedia);
     }
     throw error;
   }
@@ -51,6 +55,11 @@ export async function getAdminContentSummary() {
 export async function updateAdminUserPermissions(id, data) {
   const response = await apiClient.patch(`/admin/users/${id}/permissions`, data);
   return response.data.data;
+}
+
+export async function updateAdminPaymentStatus(id, paymentStatus) {
+  const response = await apiClient.patch(`/admin/users/${id}/payment-status`, { paymentStatus });
+  return normalizeUserMedia(response.data.data);
 }
 
 export async function createBroadcastNotification(data) {

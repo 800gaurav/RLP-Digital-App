@@ -13,6 +13,7 @@ export default function AuthLayout() {
       <Stack.Screen name="splash" options={{ animation: 'none' }} />
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="register-payment" />
     </Stack>
   );
 }

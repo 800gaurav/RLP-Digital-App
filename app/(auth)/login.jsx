@@ -13,6 +13,7 @@ import { FontFamily } from '../../constants/typography';
 import { login } from '../../services/auth.service';
 import { getFriendlyApiErrorMessage, setTokens } from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
+import { safeReplace } from '../../services/navigation';
 
 export default function LoginScreen() {
   const params = useLocalSearchParams();
@@ -45,7 +46,7 @@ export default function LoginScreen() {
       queryClient.clear();
       queryClient.setQueryData(['me'], response.user);
       setUser(response.user);
-      router.replace('/(tabs)');
+      safeReplace('/(tabs)');
     } catch (error) {
       Alert.alert('Login failed', getFriendlyApiErrorMessage(error, 'Login nahi ho paaya. Details check karke dobara try karein.'));
     } finally {

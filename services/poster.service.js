@@ -21,6 +21,22 @@ export async function getSubscriptionStatus() {
   }
 }
 
+export async function getSubscriptionPlan() {
+  try {
+    const response = await apiClient.get('/poster/subscription-plan', { skipGlobalErrorLog: true });
+    return response.data.data;
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      return {
+        price: 9,
+        monthlyDownloadLimit: demoSubscription.monthlyDownloadLimit,
+        categories: demoSubscription.categories,
+      };
+    }
+    throw error;
+  }
+}
+
 export async function consumePosterDownload(templateId) {
   const response = await apiClient.post(`/poster/templates/${templateId}/consume-download`);
   return response.data.data;

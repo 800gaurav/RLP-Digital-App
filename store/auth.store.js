@@ -13,8 +13,8 @@ export const useAuthStore = create(
       setUser: (user) => set({ user, isAuthenticated: user !== null }),
       setLoading: (loading) => set({ isLoading: loading }),
       logout: async () => {
-        await clearTokens();
         set({ user: null, isAuthenticated: false, isLoading: false });
+        await clearTokens();
       },
     }),
     {

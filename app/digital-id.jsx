@@ -34,8 +34,6 @@ export default function DigitalIdScreen() {
     initialData: storeUser ?? undefined,
   });
 
-  if (!user) return null;
-
   async function captureCard() {
     if (!cardRef.current?.capture) throw new Error('ID card preview is not ready yet. Please try again.');
 
@@ -113,6 +111,8 @@ export default function DigitalIdScreen() {
     return () => clearTimeout(timer);
   }, [action, routeActionHandled, user, working]);
 
+  if (!user) return null;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
@@ -162,14 +162,14 @@ export default function DigitalIdScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.rlpGreenDark, backgroundColor: Colors.background },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18 },
-  headerTitle: { flex: 1, fontFamily: FontFamily.semiBold, fontSize: 18, color: Colors.white, textAlign: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.rlpGreenDark, backgroundColor: Colors.background },
+  backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16 },
+  headerTitle: { flex: 1, fontFamily: FontFamily.semiBold, fontSize: 17, color: Colors.white, textAlign: 'center' },
   headerRight: { fontFamily: FontFamily.black, fontSize: 12, color: Colors.white, width: 78, textAlign: 'right' },
-  scrollContent: { padding: 20, paddingBottom: 28, alignItems: 'center' },
-  cardCapture: { width: '100%', maxWidth: 360, marginTop: 8, marginBottom: 30, backgroundColor: Colors.transparent },
-  actions: { width: '100%', maxWidth: 360, flexDirection: 'row', gap: 10 },
-  actionButton: { flex: 1, borderRadius: 12, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  scrollContent: { paddingHorizontal: 12, paddingTop: 0, paddingBottom: 0, alignItems: 'center' },
+  cardCapture: { width: '100%', maxWidth: 450, aspectRatio: 1080 / 1686, marginTop: 0, marginBottom: 10, backgroundColor: Colors.transparent },
+  actions: { width: '100%', maxWidth: 450, flexDirection: 'row', gap: 10 },
+  actionButton: { flex: 1, borderRadius: 12, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   downloadButton: { backgroundColor: Colors.rlpYellow },
   shareButton: { backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.rlpGreen },
   actionButtonText: { fontFamily: FontFamily.bold, fontSize: 14, color: Colors.onSurface, textAlign: 'center' },

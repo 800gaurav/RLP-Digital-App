@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Image, Platform, Alert, Modal,
+  ScrollView, ActivityIndicator, Image, Platform, Alert, Modal, Pressable, KeyboardAvoidingView,
 } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { brandLogo } from '../../constants/brandAssets';
 import { FontFamily } from '../../constants/typography';
 import SearchableDistrictSelect from '../../components/ui/SearchableDistrictSelect';
+import SearchableVidhansabhaSelect from '../../components/ui/SearchableVidhansabhaSelect';
 import { isValidRajasthanDistrict } from '../../constants/rajasthanDistricts';
-import { register } from '../../services/auth.service';
+import { setPendingRegistration } from '../../services/pendingRegistration';
+import { validateRegistration } from '../../services/auth.service';
 import { getFriendlyApiErrorMessage, logApiError } from '../../services/api';
-import { useAuthStore } from '../../store/auth.store';
 
 const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const CATEGORY_OPTIONS = ['General', 'OBC', 'SC', 'ST', 'Other'];
 
 function formatDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
@@ -45,6 +45,20 @@ function parseDateString(value) {
 }
 
 function isValidDate(date) { return Boolean(parseDateString(date)); }
+
+function getFieldErrorFromApi(error) {
+  const message = String(error?.response?.data?.message || '');
+  if (/mobile/i.test(message)) return { field: 'mobileNumber', message: 'Ye mobile number pehle se registered hai.' };
+  if (/voter/i.test(message)) return { field: 'voterId', message: 'Ye Voter ID pehle se registered hai.' };
+  if (/fullname|fullName/i.test(message)) return { field: 'fullName', message: 'Full name kam se kam 2 characters ka hona chahiye.' };
+  if (/password/i.test(message)) return { field: 'password', message: 'Password kam se kam 8 characters ka hona chahiye.' };
+  if (/dob|date/i.test(message)) return { field: 'dob', message: 'Date of birth sahi format me daliye.' };
+  if (/gender/i.test(message)) return { field: 'gender', message: 'Gender list me se select kijiye.' };
+  if (/category/i.test(message)) return { field: 'category', message: 'Category list me se select kijiye.' };
+  if (/district/i.test(message)) return { field: 'district', message: 'District required hai.' };
+  if (/vidhansabha/i.test(message)) return { field: 'vidhansabha', message: 'Vidhansabha required hai.' };
+  return null;
+}
 
 function FieldLabel({ label, required }) {
   return (
@@ -81,15 +95,13 @@ function StyledInput({ value, onChangeText, placeholder, keyboardType, secureTex
 }
 
 export default function RegisterScreen() {
-  const queryClient = useQueryClient();
-  const setLoading = useAuthStore((state) => state.setLoading);
   const defaultDob = new Date(2000, 0, 1);
   const maxDob = new Date();
 
   const [form, setForm] = useState({
-    fullName: '', dob: '', gender: '', voterId: '', address: '',
-    state: 'Rajasthan', district: '', city: '', pincode: '', mobileNumber: '',
-    password: '', confirmPassword: '', profilePhoto: '',
+    fullName: '', dob: '', gender: '', category: '', voterId: '',
+    state: 'Rajasthan', district: '', vidhansabha: '', mobileNumber: '',
+    password: '', confirmPassword: '', profilePhoto: '', voterIdPhoto: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -97,8 +109,11 @@ export default function RegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [showGenderPicker, setShowGenderPicker] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
-  const [credentialsModal, setCredentialsModal] = useState(null);
+  const [previewImageUri, setPreviewImageUri] = useState('');
+  const [isOtherVidhansabha, setIsOtherVidhansabha] = useState(false);
+  const [activeSelect, setActiveSelect] = useState('');
 
   const selectedDob = parseDateString(form.dob) || defaultDob;
 
@@ -111,6 +126,22 @@ export default function RegisterScreen() {
     if (Platform.OS === 'android') setShowDobPicker(false);
     if (!selectedDate) return;
     updateField('dob', formatDate(selectedDate));
+  }
+
+  function toggleGenderPicker() {
+    const next = !showGenderPicker;
+    setShowGenderPicker(next);
+    setShowCategoryPicker(false);
+    setShowDobPicker(false);
+    setActiveSelect(next ? 'gender' : '');
+  }
+
+  function toggleCategoryPicker() {
+    const next = !showCategoryPicker;
+    setShowCategoryPicker(next);
+    setShowGenderPicker(false);
+    setShowDobPicker(false);
+    setActiveSelect(next ? 'category' : '');
   }
 
   async function pickPhoto() {
@@ -133,20 +164,42 @@ export default function RegisterScreen() {
     setShowPhotoMenu(false);
   }
 
+  async function pickVoterIdFromCamera() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission Required', 'Voter ID photo lene ke liye camera permission allow kijiye.'); return; }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
+    if (!result.canceled && result.assets[0]) updateField('voterIdPhoto', result.assets[0].uri);
+  }
+
+  async function pickVoterIdFromGallery() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Permission Required', 'Voter ID photo choose karne ke liye gallery permission allow kijiye.'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.8 });
+    if (!result.canceled && result.assets[0]) updateField('voterIdPhoto', result.assets[0].uri);
+  }
+
+  function pickVoterIdPhoto() {
+    Alert.alert('Upload Voter ID Photo', 'Photo source select kijiye.', [
+      { text: 'Open Camera', onPress: pickVoterIdFromCamera },
+      { text: 'Choose Gallery', onPress: pickVoterIdFromGallery },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
   function validate() {
     const e = {};
     if (!form.fullName.trim()) e.fullName = 'Full name required hai';
     if (!form.dob.trim()) e.dob = 'Date of birth required hai';
     else if (!isValidDate(form.dob)) e.dob = 'Date DD/MM/YYYY format me daliye';
     if (!GENDER_OPTIONS.includes(form.gender)) e.gender = 'Gender list me se select kijiye';
+    if (!CATEGORY_OPTIONS.includes(form.category)) e.category = 'Category list me se select kijiye';
     if (!form.voterId.trim()) e.voterId = 'Voter ID required hai';
     else if (!/^[A-Z0-9]{10}$/i.test(form.voterId.trim())) e.voterId = 'Voter ID 10 characters ka hona chahiye';
-    if (!form.address.trim()) e.address = 'Address required hai';
     if (!form.district.trim()) e.district = 'District required hai';
     else if (!isValidRajasthanDistrict(form.district)) e.district = 'Please select a valid Rajasthan district';
-    if (!form.city.trim()) e.city = 'City required hai';
-    if (!form.pincode.trim()) e.pincode = 'Pincode required hai';
-    else if (!/^\d{6}$/.test(form.pincode.trim())) e.pincode = 'Pincode 6 digits ka hona chahiye';
+    if (!form.vidhansabha.trim()) e.vidhansabha = isOtherVidhansabha
+      ? 'Other select kiya hai to apni Vidhansabha enter karni hogi'
+      : 'Vidhansabha required hai';
     if (!form.mobileNumber.trim()) e.mobileNumber = 'Mobile number required hai';
     else if (!/^\d{10}$/.test(form.mobileNumber.trim())) e.mobileNumber = 'Mobile number 10 digits ka hona chahiye';
     if (!form.password) e.password = 'Password required hai';
@@ -160,40 +213,45 @@ export default function RegisterScreen() {
   async function handleRegister() {
     if (!validate()) return;
     setIsSubmitting(true);
-    setLoading(true);
     const [day, month, year] = form.dob.split('/');
     const isoDate = `${year}-${month}-${day}`;
-    try {
-      const response = await register({
+    const payload = {
         fullName: form.fullName.trim(), mobileNumber: form.mobileNumber.trim(),
         password: form.password, dob: isoDate, gender: form.gender,
-        voterId: form.voterId.trim().toUpperCase(), address: form.address.trim(),
-        state: 'Rajasthan', district: form.district.trim(), city: form.city.trim(),
-        pincode: form.pincode.trim(), profilePhoto: form.profilePhoto || undefined,
-      });
-      queryClient.clear();
-      setCredentialsModal({
-        userId: response.user.voterId || form.voterId.trim().toUpperCase(),
-        mobileNumber: response.user.mobileNumber || form.mobileNumber.trim(),
+        category: form.category, voterId: form.voterId.trim().toUpperCase(),
+        state: 'Rajasthan', district: form.district.trim(), vidhansabha: form.vidhansabha.trim(),
+        profilePhoto: form.profilePhoto || undefined, voterIdPhoto: form.voterIdPhoto || undefined,
+      };
+    try {
+      await validateRegistration(payload);
+      setPendingRegistration({
+        payload,
+        credentials: {
+        userId: form.voterId.trim().toUpperCase(),
+        mobileNumber: form.mobileNumber.trim(),
         password: form.password,
+        },
       });
+      router.push('/(auth)/register-payment');
     } catch (error) {
-      logApiError(error, 'Register request failed');
+      if (!error?.response) logApiError(error, 'Registration precheck failed');
+      const fieldError = getFieldErrorFromApi(error);
+      if (fieldError) setErrors((prev) => ({ ...prev, [fieldError.field]: fieldError.message }));
       Alert.alert(
-        'Registration failed',
-        getFriendlyApiErrorMessage(error, 'Registration complete nahi ho paaya. Kripya dobara try karein.'),
+        'Details check failed',
+        fieldError?.message || getFriendlyApiErrorMessage(error, 'Registration details check nahi ho paayi. Form details check karein.'),
       );
     } finally {
       setIsSubmitting(false);
-      setLoading(false);
     }
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={() => setShowPhotoMenu(false)}
       >
@@ -218,8 +276,8 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
             {showPhotoMenu ? (
-              <Pressable style={styles.photoDismissArea} onPress={() => setShowPhotoMenu(false)} />
-                        ) : null}
+              <>
+                <Pressable style={styles.photoDismissArea} onPress={() => setShowPhotoMenu(false)} />
               <View style={styles.photoMenu}>
                 <TouchableOpacity style={styles.photoMenuItem} onPress={pickPhotoFromCamera} activeOpacity={0.82}>
                   <View style={styles.photoMenuIcon}>
@@ -233,21 +291,8 @@ export default function RegisterScreen() {
                   </View>
                   <Text style={styles.photoMenuText}>Choose Gallery</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.photoMenuItem, styles.photoMenuItemLast, !form.profilePhoto ? styles.photoMenuItemDisabled : null]}
-                  onPress={() => {
-                    updateField('profilePhoto', '');
-                    setShowPhotoMenu(false);
-                  }}
-                  disabled={!form.profilePhoto}
-                  activeOpacity={0.82}
-                >
-                  <View style={[styles.photoMenuIcon, styles.photoMenuIconDanger]}>
-                    <Ionicons name="trash-outline" size={19} color={Colors.error} />
-                  </View>
-                  {/* <Text style={[styles.photoMenuText, styles.photoMenuTextDanger]}>Remove Photo</Text> */}
-                </TouchableOpacity>
               </View>
+              </>
             ) : null}
           </View>
 
@@ -257,11 +302,44 @@ export default function RegisterScreen() {
             <FieldError message={errors.fullName} />
           </View>
 
+
           <View style={styles.fieldGroup}>
+            <FieldLabel label="Mobile Number" required />
+            <StyledInput value={form.mobileNumber} onChangeText={(v) => updateField('mobileNumber', v.replace(/[^0-9]/g, ''))} placeholder="10-digit mobile number" keyboardType="phone-pad" maxLength={10} autoCapitalize="none" error={errors.mobileNumber} />
+            <FieldError message={errors.mobileNumber} />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <FieldLabel label="Voter ID" required />
+            <View style={styles.inlineFieldRow}>
+              <View style={styles.inlineFieldInput}>
+                <StyledInput value={form.voterId} onChangeText={(v) => updateField('voterId', v.toUpperCase())} placeholder="10-character Voter ID" maxLength={10} autoCapitalize="characters" error={errors.voterId} />
+              </View>
+              <TouchableOpacity style={styles.uploadButton} onPress={pickVoterIdPhoto} activeOpacity={0.85}>
+                <Ionicons name="cloud-upload-outline" size={18} color={Colors.onSurface} />
+                <Text style={styles.uploadButtonText}>{form.voterIdPhoto ? 'Change' : 'Upload'}</Text>
+              </TouchableOpacity>
+            </View>
+            <FieldError message={errors.voterId} />
+            {form.voterIdPhoto ? (
+              <Pressable style={styles.voterIdPreviewCard} onPress={() => setPreviewImageUri(form.voterIdPhoto)}>
+                <Image source={{ uri: form.voterIdPhoto }} style={styles.voterIdPreviewImage} resizeMode="cover" />
+                <Text style={styles.voterIdPreviewText}>Tap to enlarge</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+           <View style={styles.fieldGroup}>
             <FieldLabel label="Date of Birth" required />
             <TouchableOpacity
               style={[styles.inputWrapper, errors.dob ? styles.inputError : null]}
-              onPress={() => setShowDobPicker((prev) => !prev)}
+              onPress={() => {
+                const next = !showDobPicker;
+                setShowDobPicker(next);
+                setShowGenderPicker(false);
+                setShowCategoryPicker(false);
+                setActiveSelect('');
+              }}
               activeOpacity={0.8}
             >
               <Text style={[styles.textInput, !form.dob ? styles.placeholderText : null]}>
@@ -296,7 +374,7 @@ export default function RegisterScreen() {
             <FieldLabel label="Gender" required />
             <TouchableOpacity
               style={[styles.inputWrapper, errors.gender ? styles.inputError : null]}
-              onPress={() => setShowGenderPicker((prev) => !prev)}
+              onPress={toggleGenderPicker}
               activeOpacity={0.8}
             >
               <Text style={[styles.textInput, !form.gender ? styles.placeholderText : null]}>
@@ -313,6 +391,7 @@ export default function RegisterScreen() {
                     onPress={() => {
                       updateField('gender', gender);
                       setShowGenderPicker(false);
+                      setActiveSelect('');
                     }}
                     activeOpacity={0.8}
                   >
@@ -326,39 +405,82 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <FieldLabel label="Voter ID" required />
-            <StyledInput value={form.voterId} onChangeText={(v) => updateField('voterId', v.toUpperCase())} placeholder="10-character Voter ID" maxLength={10} autoCapitalize="characters" error={errors.voterId} />
-            <FieldError message={errors.voterId} />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <FieldLabel label="Address" required />
-            <StyledInput value={form.address} onChangeText={(v) => updateField('address', v)} placeholder="Enter your full address" multiline error={errors.address} />
-            <FieldError message={errors.address} />
+            <FieldLabel label="Category" required />
+            <TouchableOpacity
+              style={[styles.inputWrapper, errors.category ? styles.inputError : null]}
+              onPress={toggleCategoryPicker}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.textInput, !form.category ? styles.placeholderText : null]}>
+                {form.category || 'Select category'}
+              </Text>
+              <Ionicons name={showCategoryPicker ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.outline} />
+            </TouchableOpacity>
+            {showCategoryPicker ? (
+              <View style={styles.dropdownList}>
+                {CATEGORY_OPTIONS.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[styles.dropdownItem, form.category === category ? styles.dropdownItemSelected : null]}
+                    onPress={() => {
+                      updateField('category', category);
+                      setShowCategoryPicker(false);
+                      setActiveSelect('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.dropdownItemText, form.category === category ? styles.dropdownItemTextSelected : null]}>{category}</Text>
+                    {form.category === category ? <Ionicons name="checkmark" size={18} color={Colors.rlpGreen} /> : null}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+            <FieldError message={errors.category} />
           </View>
 
           <View style={styles.fieldGroup}>
             <FieldLabel label="District" required />
-            <SearchableDistrictSelect value={form.district} onSelect={(value) => updateField('district', value)} error={Boolean(errors.district)} placeholder="Search and choose Rajasthan district" />
+            <SearchableDistrictSelect
+              value={form.district}
+              onSelect={(value) => updateField('district', value)}
+              error={Boolean(errors.district)}
+              placeholder="Search or Choose district"
+              open={activeSelect === 'district'}
+              onOpenChange={(open) => {
+                if (open) {
+                  setActiveSelect('district');
+                  setShowGenderPicker(false);
+                  setShowCategoryPicker(false);
+                  setShowDobPicker(false);
+                } else if (activeSelect === 'district') {
+                  setActiveSelect('');
+                }
+              }}
+            />
             <FieldError message={errors.district} />
           </View>
 
           <View style={styles.fieldGroup}>
-            <FieldLabel label="City" required />
-            <StyledInput value={form.city} onChangeText={(v) => updateField('city', v)} placeholder="Enter your city" autoCapitalize="words" error={errors.city} />
-            <FieldError message={errors.city} />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <FieldLabel label="Pincode" required />
-            <StyledInput value={form.pincode} onChangeText={(v) => updateField('pincode', v)} placeholder="6-digit pincode" keyboardType="numeric" maxLength={6} error={errors.pincode} />
-            <FieldError message={errors.pincode} />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <FieldLabel label="Mobile Number" required />
-            <StyledInput value={form.mobileNumber} onChangeText={(v) => updateField('mobileNumber', v.replace(/[^0-9]/g, ''))} placeholder="10-digit mobile number" keyboardType="phone-pad" maxLength={10} autoCapitalize="none" error={errors.mobileNumber} />
-            <FieldError message={errors.mobileNumber} />
+            <FieldLabel label="Vidhansabha" required />
+            <SearchableVidhansabhaSelect
+              district={form.district}
+              value={form.vidhansabha}
+              onSelect={(value) => updateField('vidhansabha', value)}
+              error={Boolean(errors.vidhansabha)}
+              onOtherModeChange={setIsOtherVidhansabha}
+              open={activeSelect === 'vidhansabha'}
+              onOpenChange={(open) => {
+                if (open) {
+                  setActiveSelect('vidhansabha');
+                  setShowGenderPicker(false);
+                  setShowCategoryPicker(false);
+                  setShowDobPicker(false);
+                } else if (activeSelect === 'vidhansabha') {
+                  setActiveSelect('');
+                }
+              }}
+            />
+            <FieldError message={errors.vidhansabha} />
           </View>
 
           <View style={styles.fieldGroup}>
@@ -390,7 +512,7 @@ export default function RegisterScreen() {
           </View>
 
           <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.buttonDisabled]} onPress={handleRegister} disabled={isSubmitting} activeOpacity={0.85}>
-            {isSubmitting ? <ActivityIndicator color={Colors.onSurface} size="small" /> : <Text style={styles.submitButtonText}>Register & Generate ID Card</Text>}
+            {isSubmitting ? <ActivityIndicator color={Colors.onSurface} size="small" /> : <Text style={styles.submitButtonText}>Continue to Payment</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.back()} style={styles.loginLink}>
@@ -399,60 +521,23 @@ export default function RegisterScreen() {
         </View>
       </ScrollView>
 
-      <Modal visible={Boolean(credentialsModal)} transparent animationType="fade" onRequestClose={() => setCredentialsModal(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalBadge}>
-              <Image source={brandLogo} style={styles.modalLogo} resizeMode="contain" />
-            </View>
-            <Text style={styles.modalTitle}>Congratulations!</Text>
-            <Text style={styles.modalSubtitle}>Aapka account successfully create ho gaya hai. In details se login karein.</Text>
-
-            <View style={styles.credentialBox}>
-              <View style={styles.credentialRow}>
-                <Text style={styles.credentialLabel}>User ID</Text>
-                <Text style={styles.credentialValue}>{credentialsModal?.userId}</Text>
-              </View>
-              <View style={styles.credentialRow}>
-                <Text style={styles.credentialLabel}>Mobile</Text>
-                <Text style={styles.credentialValue}>{credentialsModal?.mobileNumber}</Text>
-              </View>
-              <View style={styles.credentialRow}>
-                <Text style={styles.credentialLabel}>Password</Text>
-                <Text style={styles.credentialValue}>{credentialsModal?.password}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.modalHint}>Login screen par mobile number ya voter ID dono me se kisi bhi ek se sign in kar sakte hain.</Text>
-
-            <TouchableOpacity
-              style={styles.modalButton}
-              activeOpacity={0.85}
-              onPress={() => {
-                if (!credentialsModal) return;
-                const nextCredentials = credentialsModal;
-                setCredentialsModal(null);
-                router.replace({
-                  pathname: '/(auth)/login',
-                  params: {
-                    identifier: nextCredentials.mobileNumber,
-                    password: nextCredentials.password,
-                  },
-                });
-              }}
-            >
-              <Text style={styles.modalButtonText}>Login Karein</Text>
+      <Modal visible={Boolean(previewImageUri)} transparent animationType="fade" onRequestClose={() => setPreviewImageUri('')}>
+        <Pressable style={styles.previewBackdrop} onPress={() => setPreviewImageUri('')}>
+          <View style={styles.previewCard}>
+            <TouchableOpacity style={styles.previewCloseButton} onPress={() => setPreviewImageUri('')} activeOpacity={0.85}>
+              <Ionicons name="close" size={20} color={Colors.white} />
             </TouchableOpacity>
+            {previewImageUri ? <Image source={{ uri: previewImageUri }} style={styles.previewImageLarge} resizeMode="contain" /> : null}
           </View>
-        </View>
+        </Pressable>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.rlpGreen },
-  scrollContent: { paddingBottom: 48 },
+  scrollContent: { paddingBottom: 28, flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 56 : 40, paddingBottom: 16 },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   backArrow: { fontSize: 24, color: Colors.white },
@@ -467,13 +552,16 @@ const styles = StyleSheet.create({
   photoHint: { fontFamily: FontFamily.medium, fontSize: 11, color: Colors.onSurfaceVariant },
   photoMenu: { width: 220, alignSelf: 'flex-end', marginTop: -8, marginRight: 14, borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 14, backgroundColor: Colors.white, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8, zIndex: 5 },
   photoMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.outlineVariant },
-  photoMenuItemLast: { borderBottomWidth: 0 },
-  photoMenuItemDisabled: { opacity: 0.45 },
   photoMenuIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: Colors.secondaryContainer, alignItems: 'center', justifyContent: 'center' },
-  photoMenuIconDanger: { backgroundColor: 'rgba(186, 26, 26, 0.08)' },
   photoMenuText: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.onSurface },
-  photoMenuTextDanger: { color: Colors.error },
   fieldGroup: { marginBottom: 16 },
+  inlineFieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inlineFieldInput: { flex: 1 },
+  uploadButton: { minWidth: 92, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.rlpYellow, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 13 },
+  uploadButtonText: { fontFamily: FontFamily.semiBold, fontSize: 13, color: Colors.onSurface },
+  voterIdPreviewCard: { marginTop: 10, width: '100%', borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 12, backgroundColor: Colors.surfaceContainerLow, padding: 8, alignItems: 'center', gap: 6 },
+  voterIdPreviewImage: { width: '100%', height: 60, borderRadius: 8, backgroundColor: Colors.surfaceContainer },
+  voterIdPreviewText: { fontFamily: FontFamily.medium, fontSize: 12, color: Colors.onSurfaceVariant },
   fieldLabel: { fontFamily: FontFamily.medium, fontSize: 13, color: Colors.onSurfaceVariant, marginBottom: 6 },
   required: { color: Colors.error },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.outlineVariant, borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 12 : 8, backgroundColor: Colors.surfaceContainerLow },
@@ -605,5 +693,34 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     fontSize: 15,
     color: Colors.onSurface,
+  },
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  previewCard: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    padding: 12,
+  },
+  previewImageLarge: { width: '100%', height: 420, borderRadius: 12, backgroundColor: Colors.surfaceContainerLow },
+  previewCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

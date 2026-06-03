@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Colors } from '../constants/colors';
 import { useAuthStore } from '../store/auth.store';
 import { registerAndSavePushToken, setupNotificationListeners } from '../services/push-notifications.service';
+import { setRootNavigationReady } from '../services/navigation';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,7 +53,10 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  useEffect(() => {
+    setRootNavigationReady(true);
+    return () => setRootNavigationReady(false);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
