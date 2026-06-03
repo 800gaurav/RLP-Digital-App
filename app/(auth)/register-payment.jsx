@@ -152,6 +152,9 @@ export default function RegisterPaymentScreen() {
           <View style={{ width: 40 }} />
         </View>
 
+<Text>gaurav test</Text>
+
+
         <View style={styles.card}>
           <View style={styles.logoBadge}>
             <Image source={brandLogo} style={styles.logo} resizeMode="contain" />
