@@ -89,10 +89,10 @@ export function getFriendlyApiErrorMessage(error, fallbackMessage = 'Kuch galat 
       return 'Aapka account admin ne suspend kiya hai. Kripya support/admin se contact karein.';
     }
     if (error?.response?.data?.code === 'PAYMENT_UNDER_REVIEW') {
-      return 'Aapka payment admin review me hai. Approval ke baad login hoga.';
+      return 'Aapka payment pending hai. Payment success ke baad login hoga.';
     }
     if (error?.response?.data?.code === 'PAYMENT_REJECTED') {
-      return 'Aapka payment admin ne reject kiya hai. Kripya support/admin se contact karein.';
+      return 'Aapka payment failed hai. Kripya payment dobara complete karein ya support se contact karein.';
     }
     return 'Is action ke liye permission nahi hai.';
   }

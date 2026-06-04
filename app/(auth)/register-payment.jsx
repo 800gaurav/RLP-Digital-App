@@ -20,6 +20,7 @@ import { brandLogo } from '../../constants/brandAssets';
 import { FontFamily } from '../../constants/typography';
 import { register } from '../../services/auth.service';
 import { logApiError } from '../../services/api';
+import { getRegistrationPaymentStatus, initiateRegistrationPayment } from '../../services/payment.service';
 import {
   clearPendingRegistration,
   getPendingRegistration,
@@ -28,24 +29,7 @@ import { getSubscriptionPlan } from '../../services/poster.service';
 import { useAuthStore } from '../../store/auth.store';
 import { safeReplace } from '../../services/navigation';
 
-const UPI_ID = '8094149290@apl';
 const PARTY_NAME = 'Rashtriya Loktantrik Party';
-
-function buildUpiUrl(amount) {
-  return `upi://pay?pa=8094149290@apl&pn=Account%20Holder%20Name&am=${Number(amount).toFixed(2)}&cu=INR&tn=Subscription`;
-}
-
-// function buildUpiUrl(amount) {
-//   const params = [
-//     `pa=${encodeURIComponent(UPI_ID)}`,
-//     // `pn=${encodeURIComponent(PARTY_NAME)}`,
-
-//     `am=${encodeURIComponent(String(amount))}`,
-//     'cu=INR',
-//     `tn=${encodeURIComponent('Subscription')}`,
-//   ];
-//   return `upi://pay?${params.join('&')}`;
-// }
 
 export default function RegisterPaymentScreen() {
   const queryClient = useQueryClient();
@@ -56,9 +40,12 @@ export default function RegisterPaymentScreen() {
   const [planError, setPlanError] = useState('');
   const [paymentStarted, setPaymentStarted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [registeredUser, setRegisteredUser] = useState(null);
+  const [transactionId, setTransactionId] = useState('');
+  const [paymentLink, setPaymentLink] = useState('');
   const [credentialsModal, setCredentialsModal] = useState(null);
-
-  const upiUrl = useMemo(() => buildUpiUrl(subscriptionAmount), [subscriptionAmount]);
+  const canPay = useMemo(() => Number.isFinite(Number(subscriptionAmount)) && Number(subscriptionAmount) > 0, [subscriptionAmount]);
 
   useEffect(() => {
     if (!pending) {
@@ -87,45 +74,94 @@ export default function RegisterPaymentScreen() {
     return () => { mounted = false; };
   }, []);
 
-  async function payNow() {
-    if (!subscriptionAmount) {
-      Alert.alert('Amount missing', 'Subscription amount admin settings se load nahi hua.');
-      return;
-    }
+  async function createRegistrationIfNeeded() {
+    if (registeredUser) return registeredUser;
+    if (!pending?.payload) throw new Error('Registration details missing');
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        setPaymentStarted(true);
-        window.location.href = upiUrl;
-        return;
-      }
-      await Linking.openURL(upiUrl);
-      setPaymentStarted(true);
+      const response = await register(pending.payload);
+      const nextUser = response.user;
+      setRegisteredUser(nextUser);
+      return nextUser;
     } catch (error) {
-      Alert.alert(
-        'Payment app nahi khul paaya',
-        'PhonePe, Paytm, Google Pay ya kisi UPI app se payment try karein.',
-      );
+      if (error?.response?.status !== 409) throw error;
+      return {
+        fullName: pending.payload.fullName,
+        mobileNumber: pending.payload.mobileNumber,
+        voterId: pending.payload.voterId,
+      };
     }
   }
 
-  async function completeRegistration() {
+  function showSuccessModal(user) {
+    queryClient.clear();
+    clearPendingRegistration();
+    setCredentialsModal({
+      userId: user?.voterId || pending.credentials?.userId,
+      mobileNumber: user?.mobileNumber || pending.credentials?.mobileNumber,
+      password: pending.credentials?.password,
+    });
+  }
+
+  async function checkPaymentStatus({ silent = false } = {}) {
     if (!pending?.payload) return;
+    setIsChecking(true);
+    try {
+      const status = await getRegistrationPaymentStatus({
+        client_txn_id: transactionId,
+        mobileNumber: pending.payload.mobileNumber,
+        voterId: pending.payload.voterId,
+      });
+      if (status.paymentStatus === 'approved') {
+        showSuccessModal(status.user);
+        return;
+      }
+      if (!silent) {
+        Alert.alert('Payment pending', 'Payment success callback abhi backend ko nahi mila. 10-20 seconds baad dobara check karein.');
+      }
+    } catch (error) {
+      if (!error?.response) logApiError(error, 'Payment status check failed');
+      if (!silent) Alert.alert('Status check failed', 'Payment status check nahi ho paaya. Backend/public callback URL check karein.');
+    } finally {
+      setIsChecking(false);
+    }
+  }
+
+  async function payNow() {
+    if (!canPay) {
+      Alert.alert('Amount missing', 'Subscription amount admin settings se load nahi hua.');
+      return;
+    }
     setIsCreating(true);
     setLoading(true);
     try {
-      const response = await register(pending.payload);
-      queryClient.clear();
-      clearPendingRegistration();
-      setCredentialsModal({
-        userId: response.user?.voterId || pending.credentials?.userId,
-        mobileNumber: response.user?.mobileNumber || pending.credentials?.mobileNumber,
-        password: pending.credentials?.password,
+      const user = await createRegistrationIfNeeded();
+      const payment = await initiateRegistrationPayment({
+        mobileNumber: user.mobileNumber || pending.payload.mobileNumber,
+        voterId: user.voterId || pending.payload.voterId,
+        amount: subscriptionAmount,
       });
+      if (payment.alreadyPaid) {
+        showSuccessModal(payment.user);
+        return;
+      }
+      const nextPaymentLink = payment.payment_url || payment.upi_url || payment.gateway?.data?.payment_url || payment.gateway?.data?.upi_url;
+      setTransactionId(payment.client_txn_id || '');
+      setPaymentLink(nextPaymentLink || '');
+      setPaymentStarted(true);
+      if (!nextPaymentLink) {
+        Alert.alert('Payment link missing', 'Gateway ne payment URL return nahi kiya. Backend response check karein.');
+        return;
+      }
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.href = nextPaymentLink;
+        return;
+      }
+      await Linking.openURL(nextPaymentLink);
     } catch (error) {
       if (!error?.response) logApiError(error, 'Register after UPI payment failed');
       Alert.alert(
-        'Registration submit failed',
-        'Registration submit nahi ho paaya. Agar payment process start ho chuka hai to dobara submit karein ya admin se contact karein.',
+        'Payment start failed',
+        'Registration/payment start nahi ho paaya. Backend gateway settings aur public callback URL check karein.',
       );
     } finally {
       setIsCreating(false);
@@ -158,9 +194,7 @@ export default function RegisterPaymentScreen() {
           </View>
 
           <Text style={styles.title}>Register karne ke liye subscription payment karein</Text>
-          <Text style={styles.subtitle}>
-            Payment UPI app me open hoga. Payment process start karne ke baad account admin review me jayega. Approval ke baad login enable hoga.
-          </Text>
+          <Text style={styles.subtitle}>Payment UPI app me open hoga. Payment success callback ke baad login enable hoga.</Text>
 
           <View style={styles.amountBox}>
             <Text style={styles.amountLabel}>Subscription Amount</Text>
@@ -174,29 +208,27 @@ export default function RegisterPaymentScreen() {
             <Text style={styles.partyName}>{PARTY_NAME}</Text>
           </View>
 
-          <TouchableOpacity style={[styles.payButton, (isCreating || loadingPlan || !subscriptionAmount) && styles.buttonDisabled]} onPress={payNow} activeOpacity={0.85} disabled={isCreating || loadingPlan || !subscriptionAmount}>
+          <TouchableOpacity style={[styles.payButton, (isCreating || loadingPlan || !canPay) && styles.buttonDisabled]} onPress={payNow} activeOpacity={0.85} disabled={isCreating || loadingPlan || !canPay}>
             <Ionicons name="wallet" size={20} color={Colors.onSurface} />
-            <Text style={styles.payButtonText}>Subscribe & Pay</Text>
+            <Text style={styles.payButtonText}>{isCreating ? 'Starting...' : 'Subscribe & Pay'}</Text>
           </TouchableOpacity>
 
           {paymentStarted ? (
             <TouchableOpacity
               style={[styles.confirmButton, isCreating && styles.buttonDisabled]}
-              onPress={completeRegistration}
+              onPress={() => checkPaymentStatus()}
               activeOpacity={0.85}
-              disabled={isCreating}
+              disabled={isCreating || isChecking}
             >
-              {isCreating ? (
+              {isChecking ? (
                 <ActivityIndicator color={Colors.white} size="small" />
               ) : (
-                <Text style={styles.confirmButtonText}>Submit Registration</Text>
+                <Text style={styles.confirmButtonText}>Check Payment Status</Text>
               )}
             </TouchableOpacity>
           ) : null}
 
-          <Text style={styles.note}>
-            Note: Admin payment verify karke approve/reject karega. Approval ke baad login enable hoga.
-          </Text>
+          {paymentLink ? <Text style={styles.note}>Payment app se wapas aakar status check karein. Callback public URL par aate hi login enable ho jayega.</Text> : null}
         </View>
       </ScrollView>
 
@@ -207,7 +239,7 @@ export default function RegisterPaymentScreen() {
               <Image source={brandLogo} style={styles.modalLogo} resizeMode="contain" />
             </View>
             <Text style={styles.modalTitle}>Congratulations!</Text>
-            <Text style={styles.modalSubtitle}>Aapka account create ho gaya hai aur payment admin review me hai. Approval ke baad login hoga.</Text>
+            <Text style={styles.modalSubtitle}>Payment success ho gaya hai. Ab aap login kar sakte hain.</Text>
 
             <View style={styles.credentialBox}>
               <View style={styles.credentialRow}>

@@ -15,7 +15,6 @@ import {
   getAdminUsers,
   getNotifications,
   updateAdminUserPermissions,
-  updateAdminPaymentStatus,
   updateNotification,
   updatePosterPlanSettings,
 } from '../../services/admin.service';
@@ -621,35 +620,6 @@ export default function AdminDashboardScreen() {
     setMemberCategory('');
   }
 
-  async function updatePaymentReview(member, paymentStatus) {
-    if (!member?.id) return;
-    const title = paymentStatus === 'approved' ? 'Approve Payment' : 'Reject Payment';
-    const message = paymentStatus === 'approved'
-      ? `${member.fullName || 'User'} ka payment approve karna hai?`
-      : `${member.fullName || 'User'} ka payment reject karna hai?`;
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: paymentStatus === 'approved' ? 'Approve' : 'Reject',
-        style: paymentStatus === 'approved' ? 'default' : 'destructive',
-        onPress: async () => {
-          setSaving(`payment-${member.id}`);
-          try {
-            const updated = await updateAdminPaymentStatus(member.id, paymentStatus);
-            setSelectedMember((current) => (current?.id === member.id ? updated : current));
-            await Promise.all([refetchMembers(), refetchOverview()]);
-            Alert.alert('Done', paymentStatus === 'approved' ? 'Payment approve ho gaya.' : 'Payment reject ho gaya.');
-          } catch (error) {
-            logApiError(error, 'Admin payment review failed');
-            Alert.alert('Failed', getFriendlyApiErrorMessage(error, 'Payment status update nahi hua.'));
-          } finally {
-            setSaving('');
-          }
-        },
-      },
-    ]);
-  }
-
   async function updateAccountStatus(member, accountStatus) {
     if (!member?.id) return;
     const suspending = accountStatus === 'suspended';
@@ -769,16 +739,6 @@ export default function AdminDashboardScreen() {
                         <Ionicons name="eye" size={14} color={Colors.white} />
                         <Text style={styles.detailButtonText}>Detail</Text>
                       </Pressable>
-                      {tab === 'payments' ? (
-                        <View style={styles.paymentMiniActions}>
-                          <Pressable style={[styles.paymentMiniButton, styles.paymentApproveMini]} onPress={() => updatePaymentReview(item, 'approved')}>
-                            <Ionicons name="checkmark" size={13} color={Colors.white} />
-                          </Pressable>
-                          <Pressable style={[styles.paymentMiniButton, styles.paymentRejectMini]} onPress={() => updatePaymentReview(item, 'rejected')}>
-                            <Ionicons name="close" size={13} color={Colors.white} />
-                          </Pressable>
-                        </View>
-                      ) : null}
                     </View>
                     <Text style={[styles.memberTableCell, styles.colName]} numberOfLines={2}>{item.fullName || '-'}</Text>
                     <Text style={[styles.memberTableCell, styles.colMobile]} numberOfLines={1}>{item.mobileNumber || '-'}</Text>
@@ -1322,18 +1282,6 @@ export default function AdminDashboardScreen() {
                   <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Vidhansabha</Text><Text style={styles.memberDetailValue}>{selectedMember?.vidhansabha || '-'}</Text></View>
                   <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Created On</Text><Text style={styles.memberDetailValue}>{formatDateLabel(selectedMember?.createdAt) || '-'}</Text></View>
                   <View style={styles.memberDetailItem}><Text style={styles.memberDetailLabel}>Updated On</Text><Text style={styles.memberDetailValue}>{formatDateLabel(selectedMember?.updatedAt) || '-'}</Text></View>
-                  {selectedMember?.paymentStatus === 'under_review' ? (
-                    <View style={styles.paymentReviewActions}>
-                      <Pressable style={[styles.paymentReviewButton, styles.paymentApproveButton]} onPress={() => updatePaymentReview(selectedMember, 'approved')}>
-                        <Ionicons name="checkmark-circle" size={17} color={Colors.white} />
-                        <Text style={styles.paymentReviewButtonText}>Accept Payment</Text>
-                      </Pressable>
-                      <Pressable style={[styles.paymentReviewButton, styles.paymentRejectButton]} onPress={() => updatePaymentReview(selectedMember, 'rejected')}>
-                        <Ionicons name="close-circle" size={17} color={Colors.white} />
-                        <Text style={styles.paymentReviewButtonText}>Reject Payment</Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
                   <View style={styles.paymentReviewActions}>
                     {selectedMember?.accountStatus === 'suspended' ? (
                       <Pressable style={[styles.paymentReviewButton, styles.paymentApproveButton]} onPress={() => updateAccountStatus(selectedMember, 'active')} disabled={saving === `account-${selectedMember?.id}`}>
@@ -1495,10 +1443,6 @@ const styles = StyleSheet.create({
   colUtr: { width: 130 },
   detailButton: { minHeight: 34, borderRadius: 9, backgroundColor: Colors.rlpGreen, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5 },
   detailButtonText: { fontFamily: FontFamily.bold, fontSize: 11, color: Colors.white },
-  paymentMiniActions: { flexDirection: 'row', gap: 5, marginTop: 6 },
-  paymentMiniButton: { width: 28, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  paymentApproveMini: { backgroundColor: Colors.rlpGreen },
-  paymentRejectMini: { backgroundColor: Colors.error },
   notificationHistoryCard: { backgroundColor: Colors.white, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.outlineVariant, gap: 8 },
   notificationHistoryTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   notificationIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center' },

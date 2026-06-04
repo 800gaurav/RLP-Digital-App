@@ -1,9 +1,11 @@
 import { Platform } from 'react-native';
 
-// const PROD_API_URL = 'https://rlp.genzteck.com/api';
-// const PROD_VERIFY_URL = 'https://rlp.genzteck.com/api/verify';
-const PROD_API_URL = 'http://10.249.141.1:3000/api';
-const PROD_VERIFY_URL = 'http://10.249.141.1:3000/api/verify';
+const PROD_API_URL = 'https://rlp.genzteck.com/api';
+const PROD_VERIFY_URL = 'https://rlp.genzteck.com/api/verify';
+// const PROD_API_URL = 'http://10.243.55.1:3000/api';
+// const PROD_VERIFY_URL = 'http://10.243.55.1:3000/api/verify';
+// const PROD_API_URL = 'https://m2rz2xvk-3000.inc1.devtunnels.ms/api';
+// const PROD_VERIFY_URL = 'https://m2rz2xvk-3000.inc1.devtunnels.ms/api/verify';
 
 function normalizeUrl(value) {
   if (typeof value !== 'string') return '';

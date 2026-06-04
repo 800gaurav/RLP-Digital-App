@@ -57,11 +57,6 @@ export async function updateAdminUserPermissions(id, data) {
   return response.data.data;
 }
 
-export async function updateAdminPaymentStatus(id, paymentStatus) {
-  const response = await apiClient.patch(`/admin/users/${id}/payment-status`, { paymentStatus });
-  return normalizeUserMedia(response.data.data);
-}
-
 export async function createBroadcastNotification(data) {
   const response = await apiClient.post('/notifications', data);
   return response.data.data;
